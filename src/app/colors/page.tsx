@@ -4,6 +4,12 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
 
+function formatImageUrl(url: string | null): string | null {
+  if (!url) return null
+  if (url.includes('?')) return url.includes('ssl=') ? url : `${url}&ssl=1`
+  return `${url}?ssl=1`
+}
+
 interface PantoneChip {
   pantone: {
     id: string
@@ -112,7 +118,7 @@ export default function ColorsPage() {
               <div className="aspect-square relative bg-gray-100">
                 {color.imageUrl ? (
                   <Image
-                    src={color.imageUrl}
+                    src={formatImageUrl(color.imageUrl)!}
                     alt={color.name}
                     fill
                     className="object-cover"

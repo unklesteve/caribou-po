@@ -5,6 +5,12 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
+function formatImageUrl(url: string | null): string | null {
+  if (!url) return null
+  if (url.includes('?')) return url.includes('ssl=') ? url : `${url}&ssl=1`
+  return `${url}?ssl=1`
+}
+
 interface PantoneChip {
   pantone: {
     code: string
@@ -233,7 +239,7 @@ export default function PurchaseOrderDetailPage({
                           {item.color.imageUrl && (
                             <div className="relative w-10 h-10 rounded overflow-hidden flex-shrink-0 border border-gray-200">
                               <Image
-                                src={item.color.imageUrl}
+                                src={formatImageUrl(item.color.imageUrl)!}
                                 alt={item.color.name}
                                 fill
                                 className="object-cover"

@@ -4,6 +4,12 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 
+function formatImageUrl(url: string | null): string | null {
+  if (!url) return null
+  if (url.includes('?')) return url.includes('ssl=') ? url : `${url}&ssl=1`
+  return `${url}?ssl=1`
+}
+
 interface PantoneChip {
   id: string
   code: string
@@ -150,7 +156,7 @@ export function ColorForm({ initialData }: ColorFormProps) {
             {formData.imageUrl && (
               <div className="mt-2 relative w-32 h-32 bg-gray-100 rounded-md overflow-hidden">
                 <Image
-                  src={formData.imageUrl}
+                  src={formatImageUrl(formData.imageUrl)!}
                   alt="Preview"
                   fill
                   className="object-cover"
