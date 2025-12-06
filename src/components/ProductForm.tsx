@@ -29,6 +29,7 @@ interface ProductFormProps {
     unitPrice: string
     unit: string
     category: string
+    material: string
     isActive: boolean
     engravingArt?: EngravingArt[]
     quotes?: ProductQuote[]
@@ -43,10 +44,19 @@ const defaultData = {
   unitPrice: '',
   unit: 'each',
   category: '',
+  material: '',
   isActive: true,
 }
 
-const POSITIONS = ['Side 1', 'Side 2', 'Rim']
+const MATERIALS = [
+  '6061 Aluminum',
+  '7075 Aluminum',
+  '6061 Aluminum + Steel',
+  '7075 Aluminum + Steel',
+  'Wood',
+]
+
+const POSITIONS = ['Side 1', 'Side 2', 'Both Sides', 'Rim']
 
 export function ProductForm({ initialData }: ProductFormProps) {
   const router = useRouter()
@@ -487,6 +497,23 @@ export function ProductForm({ initialData }: ProductFormProps) {
               placeholder="e.g., Yo-Yos, Parts, Accessories"
               className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Material
+            </label>
+            <select
+              name="material"
+              value={formData.material}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600"
+            >
+              <option value="">Select material</option>
+              {MATERIALS.map((mat) => (
+                <option key={mat} value={mat}>{mat}</option>
+              ))}
+            </select>
           </div>
 
           <div className="flex items-center">

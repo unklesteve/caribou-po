@@ -34,7 +34,6 @@ interface EngravingArt {
 
 interface LineItemEngraving {
   engravingArtId: string
-  quantity: number
   engravingArt: EngravingArt
 }
 
@@ -292,7 +291,7 @@ export default function PurchaseOrderDetailPage({
                               <div className="text-xs">
                                 <div className="font-medium text-gray-900">{eng.engravingArt.name}</div>
                                 <div className="text-gray-500">
-                                  {eng.engravingArt.position} &middot; {eng.quantity} units
+                                  {eng.engravingArt.position}
                                 </div>
                               </div>
                             </div>

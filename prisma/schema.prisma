@@ -37,6 +37,7 @@ model Product {
   unitPrice   Float
   unit        String   @default("each")
   category    String?
+  material    String?  // "6061 Aluminum", "7075 Aluminum", "6061 Aluminum + Steel", "7075 Aluminum + Steel", "Wood"
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -93,22 +94,23 @@ model LineItem {
   purchaseOrderId String
   productId       String
   colorId         String?
+  ringColorId     String?  // For products with steel rings
   quantity        Int
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   purchaseOrder PurchaseOrder       @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
   product       Product             @relation(fields: [productId], references: [id])
-  color         YoyoColor?          @relation(fields: [colorId], references: [id])
+  color         YoyoColor?          @relation("LineItemColor", fields: [colorId], references: [id])
+  ringColor     YoyoColor?          @relation("LineItemRingColor", fields: [ringColorId], references: [id])
   engravings    LineItemEngraving[]
 }
 
-// Junction table for line items and their engraving selections with quantities
+// Junction table for line items and their engraving selections
 model LineItemEngraving {
   id             String @id @default(cuid())
   lineItemId     String
   engravingArtId String
-  quantity       Int    // Number of units with this engraving
 
   lineItem    LineItem     @relation(fields: [lineItemId], references: [id], onDelete: Cascade)
   engravingArt EngravingArt @relation(fields: [engravingArtId], references: [id], onDelete: Cascade)
@@ -131,9 +133,10 @@ model YoyoColor {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  pantoneChips ColorPantone[]
-  lineItems    LineItem[]
-  tags         ColorTag[]
+  pantoneChips      ColorPantone[]
+  lineItems         LineItem[]     @relation("LineItemColor")
+  ringColorLineItems LineItem[]    @relation("LineItemRingColor")
+  tags              ColorTag[]
 }
 
 model ColorTag {

@@ -71,6 +71,14 @@ export async function GET(request: NextRequest) {
               },
             },
           },
+          ringColor: {
+            include: {
+              pantoneChips: {
+                include: { pantone: true },
+                orderBy: { orderIndex: 'asc' },
+              },
+            },
+          },
           engravings: {
             include: {
               engravingArt: true,
@@ -96,14 +104,14 @@ export async function POST(request: NextRequest) {
       status: 'DRAFT',
       notes: body.notes || null,
       lineItems: {
-        create: body.lineItems.map((item: { productId: string; colorId?: string | null; quantity: number; engravings?: { engravingArtId: string; quantity: number }[] }) => ({
+        create: body.lineItems.map((item: { productId: string; colorId?: string | null; ringColorId?: string | null; quantity: number; engravings?: { engravingArtId: string }[] }) => ({
           productId: item.productId,
           colorId: item.colorId || null,
+          ringColorId: item.ringColorId || null,
           quantity: item.quantity,
           engravings: item.engravings?.length ? {
             create: item.engravings.map((eng) => ({
               engravingArtId: eng.engravingArtId,
-              quantity: eng.quantity,
             })),
           } : undefined,
         })),
@@ -122,6 +130,14 @@ export async function POST(request: NextRequest) {
             },
           },
           color: {
+            include: {
+              pantoneChips: {
+                include: { pantone: true },
+                orderBy: { orderIndex: 'asc' },
+              },
+            },
+          },
+          ringColor: {
             include: {
               pantoneChips: {
                 include: { pantone: true },

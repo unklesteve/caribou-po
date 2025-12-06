@@ -27,6 +27,14 @@ export async function GET(
               },
             },
           },
+          ringColor: {
+            include: {
+              pantoneChips: {
+                include: { pantone: true },
+                orderBy: { orderIndex: 'asc' },
+              },
+            },
+          },
           engravings: {
             include: {
               engravingArt: true,
@@ -61,14 +69,14 @@ export async function PUT(
       supplierId: body.supplierId,
       notes: body.notes || null,
       lineItems: {
-        create: body.lineItems.map((item: { productId: string; colorId?: string | null; quantity: number; engravings?: { engravingArtId: string; quantity: number }[] }) => ({
+        create: body.lineItems.map((item: { productId: string; colorId?: string | null; ringColorId?: string | null; quantity: number; engravings?: { engravingArtId: string }[] }) => ({
           productId: item.productId,
           colorId: item.colorId || null,
+          ringColorId: item.ringColorId || null,
           quantity: item.quantity,
           engravings: item.engravings?.length ? {
             create: item.engravings.map((eng) => ({
               engravingArtId: eng.engravingArtId,
-              quantity: eng.quantity,
             })),
           } : undefined,
         })),
@@ -87,6 +95,14 @@ export async function PUT(
             },
           },
           color: {
+            include: {
+              pantoneChips: {
+                include: { pantone: true },
+                orderBy: { orderIndex: 'asc' },
+              },
+            },
+          },
+          ringColor: {
             include: {
               pantoneChips: {
                 include: { pantone: true },
@@ -140,6 +156,14 @@ export async function PATCH(
             },
           },
           color: {
+            include: {
+              pantoneChips: {
+                include: { pantone: true },
+                orderBy: { orderIndex: 'asc' },
+              },
+            },
+          },
+          ringColor: {
             include: {
               pantoneChips: {
                 include: { pantone: true },

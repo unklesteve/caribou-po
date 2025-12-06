@@ -29,6 +29,7 @@ interface Product {
   name: string
   unitPrice: number
   unit: string
+  material?: string | null
   imageUrl?: string | null
   engravingArt?: EngravingArt[]
 }
@@ -41,16 +42,21 @@ interface YoyoColor {
 
 interface LineItemEngraving {
   engravingArtId: string
-  quantity: number
 }
 
 interface LineItem {
   productId: string
   colorId: string | null
+  ringColorId: string | null
   quantity: number
   product?: Product
   color?: YoyoColor | null
+  ringColor?: YoyoColor | null
   engravings: LineItemEngraving[]
+}
+
+function hasSteel(material: string | null | undefined): boolean {
+  return material?.includes('Steel') || false
 }
 
 interface PurchaseOrderFormProps {
@@ -103,9 +109,11 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
       {
         productId: product.id,
         colorId: null,
+        ringColorId: null,
         quantity: 1,
         product,
         color: null,
+        ringColor: null,
         engravings: [],
       },
     ])
@@ -120,6 +128,8 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
           ...updated[index],
           productId: value as string,
           product,
+          ringColorId: null, // Reset ring color when product changes
+          ringColor: null,
           engravings: [], // Reset engravings when product changes
         }
       }
@@ -130,26 +140,30 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
         colorId: value as string | null,
         color,
       }
+    } else if (field === 'ringColorId') {
+      const ringColor = value ? colors.find((c) => c.id === value) : null
+      updated[index] = {
+        ...updated[index],
+        ringColorId: value as string | null,
+        ringColor,
+      }
     } else if (field === 'quantity') {
       updated[index] = { ...updated[index], quantity: parseInt(value as string) || 1 }
     }
     setLineItems(updated)
   }
 
-  function updateEngraving(lineItemIndex: number, engravingArtId: string, quantity: number) {
+  function toggleEngraving(lineItemIndex: number, engravingArtId: string) {
     const updated = [...lineItems]
     const item = updated[lineItemIndex]
     const existingIndex = item.engravings.findIndex(e => e.engravingArtId === engravingArtId)
 
-    if (quantity === 0) {
-      // Remove engraving if quantity is 0
+    if (existingIndex >= 0) {
+      // Remove engraving if already selected
       item.engravings = item.engravings.filter(e => e.engravingArtId !== engravingArtId)
-    } else if (existingIndex >= 0) {
-      // Update existing engraving
-      item.engravings[existingIndex].quantity = quantity
     } else {
       // Add new engraving
-      item.engravings.push({ engravingArtId, quantity })
+      item.engravings.push({ engravingArtId })
     }
 
     setLineItems(updated)
@@ -178,8 +192,9 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
       lineItems: lineItems.map((item) => ({
         productId: item.productId,
         colorId: item.colorId,
+        ringColorId: item.ringColorId,
         quantity: item.quantity,
-        engravings: item.engravings.filter(e => e.quantity > 0),
+        engravings: item.engravings,
       })),
     }
 
@@ -280,7 +295,7 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
                   </div>
 
                   {/* Color Selection */}
-                  <div className="md:col-span-3">
+                  <div className={hasSteel(item.product?.material) ? "md:col-span-2" : "md:col-span-3"}>
                     <label className="block text-xs font-medium text-gray-500 mb-1">
                       Color
                     </label>
@@ -313,8 +328,44 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
                     </div>
                   </div>
 
+                  {/* Ring Color Selection - Only show for steel products */}
+                  {hasSteel(item.product?.material) && (
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-medium text-gray-500 mb-1">
+                        Ring Color
+                      </label>
+                      <div className="flex gap-2 items-center">
+                        {item.ringColor?.imageUrl && (
+                          <div className="relative w-10 h-10 rounded-md overflow-hidden flex-shrink-0 border border-gray-200">
+                            <Image
+                              src={formatImageUrl(item.ringColor.imageUrl)!}
+                              alt={item.ringColor.name}
+                              fill
+                              className="object-cover"
+                              unoptimized
+                            />
+                          </div>
+                        )}
+                        <select
+                          value={item.ringColorId || ''}
+                          onChange={(e) =>
+                            updateLineItem(index, 'ringColorId', e.target.value || null)
+                          }
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600 text-sm"
+                        >
+                          <option value="">No ring color</option>
+                          {colors.map((color) => (
+                            <option key={color.id} value={color.id}>
+                              {color.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Quantity */}
-                  <div className="md:col-span-3">
+                  <div className={hasSteel(item.product?.material) ? "md:col-span-2" : "md:col-span-3"}>
                     <label className="block text-xs font-medium text-gray-500 mb-1">
                       Qty
                     </label>
@@ -345,17 +396,25 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
                 {item.product?.engravingArt && item.product.engravingArt.length > 0 && (
                   <div className="mt-4 pt-4 border-t border-gray-200">
                     <label className="block text-xs font-medium text-gray-500 mb-2">
-                      Engraving Art (specify quantity for each)
+                      Engraving Art
                     </label>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
                       {item.product.engravingArt.map((art) => {
-                        const currentEngraving = item.engravings.find(e => e.engravingArtId === art.id)
-                        const currentQty = currentEngraving?.quantity || 0
+                        const isSelected = item.engravings.some(e => e.engravingArtId === art.id)
                         return (
-                          <div
+                          <button
                             key={art.id}
-                            className={`relative border rounded-lg p-2 ${currentQty > 0 ? 'border-maroon-600 bg-maroon-50' : 'border-gray-200'}`}
+                            type="button"
+                            onClick={() => toggleEngraving(index, art.id)}
+                            className={`relative border rounded-lg p-2 transition-colors ${isSelected ? 'border-maroon-600 bg-maroon-50' : 'border-gray-200 hover:border-gray-300'}`}
                           >
+                            {isSelected && (
+                              <div className="absolute top-1 right-1 w-5 h-5 bg-maroon-600 rounded-full flex items-center justify-center">
+                                <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                            )}
                             <div className="relative w-full aspect-square mb-2 rounded overflow-hidden bg-gray-100">
                               <Image
                                 src={formatImageUrl(art.imageUrl)!}
@@ -371,24 +430,13 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
                               </div>
                               <div className="text-gray-500">{art.position}</div>
                             </div>
-                            <div className="mt-2">
-                              <input
-                                type="number"
-                                min="0"
-                                max={item.quantity}
-                                value={currentQty}
-                                onChange={(e) => updateEngraving(index, art.id, parseInt(e.target.value) || 0)}
-                                placeholder="0"
-                                className="w-full px-2 py-1 text-sm text-center border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-maroon-600"
-                              />
-                            </div>
-                          </div>
+                          </button>
                         )
                       })}
                     </div>
                     {item.engravings.length > 0 && (
                       <div className="mt-2 text-xs text-gray-600">
-                        Total engravings: {item.engravings.reduce((sum, e) => sum + e.quantity, 0)} / {item.quantity} units
+                        {item.engravings.length} engraving{item.engravings.length !== 1 ? 's' : ''} selected
                       </div>
                     )}
                   </div>

@@ -33,6 +33,7 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
     unitPrice: product.unitPrice.toString(),
     unit: product.unit,
     category: product.category || '',
+    material: product.material || '',
     isActive: product.isActive,
     engravingArt: product.engravingArt,
     quotes: product.quotes.map(q => ({

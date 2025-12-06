@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
       unitPrice: parseFloat(body.unitPrice),
       unit: body.unit || 'each',
       category: body.category || null,
+      material: body.material || null,
       isActive: body.isActive ?? true,
     },
     include: {
