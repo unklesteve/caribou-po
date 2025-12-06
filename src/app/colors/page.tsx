@@ -33,6 +33,7 @@ export default function ColorsPage() {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [seeding, setSeeding] = useState(false)
+  const [analyzing, setAnalyzing] = useState(false)
 
   useEffect(() => {
     fetchColors()
@@ -64,11 +65,36 @@ export default function ColorsPage() {
     fetchColors()
   }
 
+  async function handleAnalyzeColors() {
+    if (!confirm('Analyze all color images and auto-assign closest Pantone matches? This may take a few minutes.')) return
+    setAnalyzing(true)
+    try {
+      const res = await fetch('/api/colors/analyze', { method: 'POST' })
+      const data = await res.json()
+      if (data.success) {
+        alert(data.message)
+        fetchColors()
+      } else {
+        alert(`Error: ${data.error}`)
+      }
+    } catch (error) {
+      alert('Failed to analyze colors')
+    }
+    setAnalyzing(false)
+  }
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Yo-Yo Colors</h1>
         <div className="flex gap-2">
+          <button
+            onClick={handleAnalyzeColors}
+            disabled={analyzing}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium transition-colors disabled:opacity-50"
+          >
+            {analyzing ? 'Analyzing...' : 'Auto-Match Pantone'}
+          </button>
           <button
             onClick={handleSeedColors}
             disabled={seeding}
