@@ -53,26 +53,48 @@ async function extractDominantColors(imageUrl: string): Promise<{ r: number; g: 
   // Dynamic import of sharp to avoid build issues
   const sharp = (await import('sharp')).default
 
-  const fullUrl = imageUrl.includes('?') ? imageUrl : `${imageUrl}?ssl=1`
+  // Add ssl=1 if not already present
+  let fullUrl = imageUrl
+  if (!fullUrl.includes('ssl=')) {
+    fullUrl = fullUrl.includes('?') ? `${fullUrl}&ssl=1` : `${fullUrl}?ssl=1`
+  }
+
+  console.log(`Fetching image: ${fullUrl}`)
 
   const response = await fetch(fullUrl, {
     headers: {
-      'User-Agent': 'Mozilla/5.0 (compatible; ColorAnalyzer/1.0)',
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+      'Accept': 'image/*,*/*',
     },
   })
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch image: ${response.status}`)
+    throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`)
+  }
+
+  const contentType = response.headers.get('content-type')
+  if (!contentType?.startsWith('image/')) {
+    throw new Error(`Not an image: ${contentType}`)
   }
 
   const arrayBuffer = await response.arrayBuffer()
   const buffer = Buffer.from(arrayBuffer)
 
+  if (buffer.length === 0) {
+    throw new Error('Empty image buffer')
+  }
+
+  console.log(`Image size: ${buffer.length} bytes`)
+
   // Get image stats which includes dominant color
-  const { dominant, channels } = await sharp(buffer)
+  const stats = await sharp(buffer)
     .resize(50, 50, { fit: 'cover' })
     .removeAlpha()
     .stats()
+
+  const { dominant, channels } = stats
+
+  console.log(`Dominant color: R=${dominant.r}, G=${dominant.g}, B=${dominant.b}`)
 
   // Return dominant color and channel means as additional colors
   const colors: { r: number; g: number; b: number }[] = [dominant]
@@ -160,31 +182,43 @@ export async function POST() {
         // Extract dominant colors from image
         const dominantColors = await extractDominantColors(color.imageUrl)
 
+        if (dominantColors.length === 0) {
+          results.push({
+            colorId: color.id,
+            colorName: color.name,
+            matched: 0,
+            error: 'Could not extract colors from image',
+          })
+          continue
+        }
+
         // Find closest Pantone matches for each dominant color
         const matchedPantoneIds = new Set<string>()
         const matchedPantoneCodes: string[] = []
 
         for (const dominantColor of dominantColors) {
-          const closestPantones = findClosestPantones(dominantColor, pantones, 3)
+          const closestPantones = findClosestPantones(dominantColor, pantones, 5)
 
-          // Only add pantones with reasonable color distance (< 25 is a good match)
-          for (const match of closestPantones) {
-            if (match.distance < 25 && !matchedPantoneIds.has(match.id)) {
+          // Add the top 2 closest matches for each dominant color (regardless of distance)
+          // This ensures we always get some matches
+          for (let i = 0; i < Math.min(2, closestPantones.length); i++) {
+            const match = closestPantones[i]
+            if (!matchedPantoneIds.has(match.id)) {
               matchedPantoneIds.add(match.id)
-              matchedPantoneCodes.push(match.code)
+              matchedPantoneCodes.push(`${match.code} (ΔE=${match.distance.toFixed(1)})`)
             }
           }
         }
 
         // Update the color with matched Pantone chips
-        if (matchedPantoneIds.size > 0) {
-          // Remove existing associations
-          await prisma.colorPantone.deleteMany({
-            where: { colorId: color.id },
-          })
+        // Remove existing associations
+        await prisma.colorPantone.deleteMany({
+          where: { colorId: color.id },
+        })
 
-          // Create new associations
-          const pantoneIdsArray = Array.from(matchedPantoneIds)
+        // Create new associations
+        const pantoneIdsArray = Array.from(matchedPantoneIds)
+        if (pantoneIdsArray.length > 0) {
           await prisma.colorPantone.createMany({
             data: pantoneIdsArray.map((pantoneId, index) => ({
               colorId: color.id,
@@ -192,21 +226,14 @@ export async function POST() {
               order: index,
             })),
           })
-
-          results.push({
-            colorId: color.id,
-            colorName: color.name,
-            matched: matchedPantoneIds.size,
-            pantones: matchedPantoneCodes,
-          })
-        } else {
-          results.push({
-            colorId: color.id,
-            colorName: color.name,
-            matched: 0,
-            error: 'No close Pantone matches found',
-          })
         }
+
+        results.push({
+          colorId: color.id,
+          colorName: color.name,
+          matched: matchedPantoneIds.size,
+          pantones: matchedPantoneCodes,
+        })
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Unknown error'
         results.push({
