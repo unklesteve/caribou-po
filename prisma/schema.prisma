@@ -1,0 +1,79 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Supplier {
+  id            String   @id @default(cuid())
+  name          String
+  email         String?
+  phone         String?
+  address       String?
+  city          String?
+  state         String?
+  zip           String?
+  country       String?
+  paymentTerms  String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  purchaseOrders PurchaseOrder[]
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  sku         String   @unique
+  name        String
+  description String?
+  unitPrice   Float
+  unit        String   @default("each")
+  category    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lineItems LineItem[]
+}
+
+model PurchaseOrder {
+  id           String   @id @default(cuid())
+  poNumber     String   @unique
+  supplierId   String
+  status       String   @default("DRAFT")
+  notes        String?
+  shippingCost Float    @default(0)
+  taxRate      Float    @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  sentAt       DateTime?
+  receivedAt   DateTime?
+
+  supplier  Supplier   @relation(fields: [supplierId], references: [id])
+  lineItems LineItem[]
+}
+
+model LineItem {
+  id              String   @id @default(cuid())
+  purchaseOrderId String
+  productId       String
+  quantity        Int
+  unitPrice       Float
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product       Product       @relation(fields: [productId], references: [id])
+}
+
+model POCounter {
+  id      String @id @default("singleton")
+  counter Int    @default(0)
+}
