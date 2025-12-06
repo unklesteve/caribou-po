@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { writeFile, mkdir } from 'fs/promises'
+import { mkdir } from 'fs/promises'
 import path from 'path'
 import { existsSync } from 'fs'
 
@@ -8,6 +8,8 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
+    const sharp = (await import('sharp')).default
+
     const formData = await request.formData()
     const file = formData.get('file') as File | null
     const folder = (formData.get('folder') as string) || 'colors'
@@ -30,12 +32,13 @@ export async function POST(request: NextRequest) {
 
     // Generate unique filename
     const timestamp = Date.now()
-    const ext = file.name.split('.').pop() || 'jpg'
     const safeName = file.name
       .replace(/\.[^/.]+$/, '') // Remove extension
       .replace(/[^a-zA-Z0-9-_]/g, '-') // Replace special chars
       .substring(0, 50) // Limit length
-    const filename = `${safeName}-${timestamp}.${ext}`
+
+    // Always save as high-quality PNG for best clarity
+    const filename = `${safeName}-${timestamp}.png`
 
     // Ensure upload directory exists
     const uploadDir = path.join(process.cwd(), 'public', 'uploads', folder)
@@ -43,11 +46,24 @@ export async function POST(request: NextRequest) {
       await mkdir(uploadDir, { recursive: true })
     }
 
-    // Write file
+    // Process image with sharp - high quality settings
     const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
+    const inputBuffer = Buffer.from(bytes)
+
+    const outputBuffer = await sharp(inputBuffer)
+      .resize(800, 800, {
+        fit: 'inside',
+        withoutEnlargement: true, // Don't upscale small images
+      })
+      .png({
+        quality: 100,
+        compressionLevel: 1, // Minimal compression for best quality
+      })
+      .toBuffer()
+
     const filepath = path.join(uploadDir, filename)
-    await writeFile(filepath, buffer)
+    const { writeFile } = await import('fs/promises')
+    await writeFile(filepath, outputBuffer)
 
     // Return the public URL
     const url = `/uploads/${folder}/${filename}`

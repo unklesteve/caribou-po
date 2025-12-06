@@ -9,6 +9,8 @@ export const dynamic = 'force-dynamic'
 
 async function downloadImage(url: string, filename: string): Promise<string | null> {
   try {
+    const sharp = (await import('sharp')).default
+
     // Add ssl=1 if needed
     let fullUrl = url
     if (!fullUrl.includes('ssl=')) {
@@ -26,26 +28,18 @@ async function downloadImage(url: string, filename: string): Promise<string | nu
       throw new Error(`HTTP ${response.status}`)
     }
 
-    const contentType = response.headers.get('content-type') || 'image/jpeg'
-
-    // Determine extension from content type
-    let ext = 'jpg'
-    if (contentType.includes('png')) ext = 'png'
-    else if (contentType.includes('gif')) ext = 'gif'
-    else if (contentType.includes('webp')) ext = 'webp'
-
     const arrayBuffer = await response.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
+    const inputBuffer = Buffer.from(arrayBuffer)
 
-    if (buffer.length < 100) {
+    if (inputBuffer.length < 100) {
       throw new Error('Image too small, likely invalid')
     }
 
-    // Create safe filename
+    // Create safe filename - always save as high-quality PNG
     const safeFilename = filename
       .replace(/[^a-zA-Z0-9-_]/g, '-')
       .substring(0, 50)
-    const finalFilename = `${safeFilename}-${Date.now()}.${ext}`
+    const finalFilename = `${safeFilename}-${Date.now()}.png`
 
     // Ensure directory exists
     const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'colors')
@@ -53,9 +47,20 @@ async function downloadImage(url: string, filename: string): Promise<string | nu
       await mkdir(uploadDir, { recursive: true })
     }
 
-    // Write file
+    // Process image with sharp - high quality settings
+    const outputBuffer = await sharp(inputBuffer)
+      .resize(800, 800, {
+        fit: 'inside',
+        withoutEnlargement: true, // Don't upscale small images
+      })
+      .png({
+        quality: 100,
+        compressionLevel: 1, // Minimal compression for best quality
+      })
+      .toBuffer()
+
     const filepath = path.join(uploadDir, finalFilename)
-    await writeFile(filepath, buffer)
+    await writeFile(filepath, outputBuffer)
 
     return `/uploads/colors/${finalFilename}`
   } catch (error) {
