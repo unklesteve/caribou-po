@@ -20,6 +20,12 @@ export async function GET(request: NextRequest) {
         activeOnly ? { isActive: true } : {},
       ],
     },
+    include: {
+      engravingArt: {
+        where: { isActive: true },
+        orderBy: { position: 'asc' },
+      },
+    },
     orderBy: { name: 'asc' },
   })
 
@@ -34,10 +40,14 @@ export async function POST(request: NextRequest) {
       sku: body.sku,
       name: body.name,
       description: body.description || null,
+      imageUrl: body.imageUrl || null,
       unitPrice: parseFloat(body.unitPrice),
       unit: body.unit || 'each',
       category: body.category || null,
       isActive: body.isActive ?? true,
+    },
+    include: {
+      engravingArt: true,
     },
   })
 

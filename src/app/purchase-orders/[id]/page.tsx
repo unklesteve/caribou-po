@@ -25,6 +25,19 @@ interface YoyoColor {
   pantoneChips: PantoneChip[]
 }
 
+interface EngravingArt {
+  id: string
+  name: string
+  imageUrl: string
+  position: string
+}
+
+interface LineItemEngraving {
+  engravingArtId: string
+  quantity: number
+  engravingArt: EngravingArt
+}
+
 interface LineItem {
   id: string
   quantity: number
@@ -33,8 +46,10 @@ interface LineItem {
     sku: string
     name: string
     unit: string
+    imageUrl?: string | null
   }
   color: YoyoColor | null
+  engravings: LineItemEngraving[]
 }
 
 interface PurchaseOrder {
@@ -211,6 +226,9 @@ export default function PurchaseOrderDetailPage({
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Color
                   </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Engravings
+                  </th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                     Qty
                   </th>
@@ -276,6 +294,33 @@ export default function PurchaseOrderDetailPage({
                         <span className="text-gray-400">-</span>
                       )}
                     </td>
+                    <td className="px-4 py-3">
+                      {item.engravings && item.engravings.length > 0 ? (
+                        <div className="space-y-2">
+                          {item.engravings.map((eng) => (
+                            <div key={eng.engravingArtId} className="flex items-center gap-2">
+                              <div className="relative w-8 h-8 rounded overflow-hidden flex-shrink-0 border border-gray-200 bg-gray-100">
+                                <Image
+                                  src={formatImageUrl(eng.engravingArt.imageUrl)!}
+                                  alt={eng.engravingArt.name}
+                                  fill
+                                  className="object-contain"
+                                  unoptimized
+                                />
+                              </div>
+                              <div className="text-xs">
+                                <div className="font-medium text-gray-900">{eng.engravingArt.name}</div>
+                                <div className="text-gray-500">
+                                  {eng.engravingArt.position} &middot; {eng.quantity} units
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-right text-gray-900">
                       {item.quantity} {item.product.unit}
                     </td>
@@ -290,7 +335,7 @@ export default function PurchaseOrderDetailPage({
               </tbody>
               <tfoot className="bg-gray-50">
                 <tr>
-                  <td colSpan={4} className="px-4 py-3 text-right text-gray-600">
+                  <td colSpan={5} className="px-4 py-3 text-right text-gray-600">
                     Subtotal:
                   </td>
                   <td className="px-4 py-3 text-right font-medium text-gray-900">
@@ -298,7 +343,7 @@ export default function PurchaseOrderDetailPage({
                   </td>
                 </tr>
                 <tr>
-                  <td colSpan={4} className="px-4 py-3 text-right text-gray-600">
+                  <td colSpan={5} className="px-4 py-3 text-right text-gray-600">
                     Tax ({po.taxRate}%):
                   </td>
                   <td className="px-4 py-3 text-right font-medium text-gray-900">
@@ -306,7 +351,7 @@ export default function PurchaseOrderDetailPage({
                   </td>
                 </tr>
                 <tr>
-                  <td colSpan={4} className="px-4 py-3 text-right text-gray-600">
+                  <td colSpan={5} className="px-4 py-3 text-right text-gray-600">
                     Shipping:
                   </td>
                   <td className="px-4 py-3 text-right font-medium text-gray-900">
@@ -314,7 +359,7 @@ export default function PurchaseOrderDetailPage({
                   </td>
                 </tr>
                 <tr className="border-t-2">
-                  <td colSpan={4} className="px-4 py-3 text-right text-lg font-medium">
+                  <td colSpan={5} className="px-4 py-3 text-right text-lg font-medium">
                     Total:
                   </td>
                   <td className="px-4 py-3 text-right text-lg font-bold text-maroon-800">

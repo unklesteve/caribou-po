@@ -17,6 +17,11 @@ interface PantoneChip {
   hexColor: string
 }
 
+interface ColorTag {
+  id: string
+  name: string
+}
+
 interface ColorFormProps {
   initialData?: {
     id?: string
@@ -26,6 +31,7 @@ interface ColorFormProps {
     isActive: boolean
     pantoneLocked: boolean
     pantoneIds: string[]
+    tagIds: string[]
   }
 }
 
@@ -36,15 +42,20 @@ const defaultData = {
   isActive: true,
   pantoneLocked: false,
   pantoneIds: [] as string[],
+  tagIds: [] as string[],
 }
 
 export function ColorForm({ initialData }: ColorFormProps) {
   const router = useRouter()
   const [formData, setFormData] = useState(initialData || defaultData)
   const [pantones, setPantones] = useState<PantoneChip[]>([])
+  const [tags, setTags] = useState<ColorTag[]>([])
   const [saving, setSaving] = useState(false)
   const [pantoneSearch, setPantoneSearch] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [imageUrl, setImageUrl] = useState('')
+  const [fetchingUrl, setFetchingUrl] = useState(false)
 
   const isEditing = !!initialData?.id
 
@@ -61,12 +72,68 @@ export function ColorForm({ initialData }: ColorFormProps) {
 
   useEffect(() => {
     fetchPantones()
+    fetchTags()
   }, [])
 
   async function fetchPantones() {
     const res = await fetch('/api/pantone')
     const data = await res.json()
     setPantones(data)
+  }
+
+  async function fetchTags() {
+    const res = await fetch('/api/tags')
+    const data = await res.json()
+    setTags(data)
+  }
+
+  function toggleTag(tagId: string) {
+    const current = formData.tagIds
+    if (current.includes(tagId)) {
+      setFormData({
+        ...formData,
+        tagIds: current.filter((id) => id !== tagId),
+      })
+    } else {
+      setFormData({
+        ...formData,
+        tagIds: [...current, tagId],
+      })
+    }
+  }
+
+  async function handleAutoMatchPantone() {
+    if (!initialData?.id) return
+    if (!formData.imageUrl) {
+      alert('Please upload an image first')
+      return
+    }
+
+    setAnalyzing(true)
+    try {
+      const res = await fetch(`/api/colors/${initialData.id}/analyze`, {
+        method: 'POST',
+      })
+      const data = await res.json()
+
+      if (data.success) {
+        // Update the form with the matched Pantone IDs
+        const matchedIds = data.matches.map((m: { id: string }) => m.id)
+        setFormData({ ...formData, pantoneIds: matchedIds })
+
+        const matchDetails = data.matches
+          .map((m: { code: string; deltaE: string; weight: string }) =>
+            `${m.code} (ΔE: ${m.deltaE}, ${m.weight})`
+          )
+          .join('\n')
+        alert(`${data.message}\n\n${matchDetails}`)
+      } else {
+        alert(`Error: ${data.error}`)
+      }
+    } catch (error) {
+      alert(`Failed to analyze: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+    setAnalyzing(false)
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -138,8 +205,46 @@ export function ColorForm({ initialData }: ColorFormProps) {
     setUploading(false)
   }
 
+  async function handleFetchFromUrl() {
+    if (!imageUrl.trim()) {
+      alert('Please enter a URL')
+      return
+    }
+
+    setFetchingUrl(true)
+    try {
+      const res = await fetch('/api/upload/from-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: imageUrl, folder: 'colors' }),
+      })
+
+      const result = await res.json()
+      if (result.success) {
+        setFormData({ ...formData, imageUrl: result.url })
+        setImageUrl('')
+      } else {
+        alert(`Failed to fetch image: ${result.error}`)
+      }
+    } catch (error) {
+      alert('Failed to fetch image from URL')
+    }
+    setFetchingUrl(false)
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {isEditing && (
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={saving}
+            className="px-4 py-2 bg-maroon-800 hover:bg-maroon-900 text-white rounded-md font-medium transition-colors disabled:opacity-50"
+          >
+            {saving ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
+      )}
       <div className="bg-white shadow rounded-lg p-6">
         <h2 className="text-lg font-medium text-gray-900 mb-4">Color Details</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -187,6 +292,35 @@ export function ColorForm({ initialData }: ColorFormProps) {
           </div>
 
           <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Color Type Tags
+            </label>
+            {tags.length === 0 ? (
+              <p className="text-gray-500 text-sm">No tags available. Seed tags first.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {tags.map((tag) => {
+                  const isSelected = formData.tagIds.includes(tag.id)
+                  return (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      onClick={() => toggleTag(tag.id)}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                        isSelected
+                          ? 'bg-maroon-800 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {tag.name}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Color Image
             </label>
@@ -213,14 +347,44 @@ export function ColorForm({ initialData }: ColorFormProps) {
                 {uploading && (
                   <p className="text-sm text-gray-500">Uploading...</p>
                 )}
-                {formData.imageUrl && (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Or paste image URL here..."
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600"
+                  />
                   <button
                     type="button"
-                    onClick={() => setFormData({ ...formData, imageUrl: '' })}
-                    className="text-sm text-red-600 hover:text-red-800"
+                    onClick={handleFetchFromUrl}
+                    disabled={fetchingUrl || !imageUrl.trim()}
+                    className="px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-md font-medium transition-colors disabled:opacity-50"
                   >
-                    Remove image
+                    {fetchingUrl ? 'Fetching...' : 'Fetch'}
                   </button>
+                </div>
+                {formData.imageUrl && (
+                  <div className="flex items-center gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, imageUrl: '' })}
+                      className="text-sm text-red-600 hover:text-red-800"
+                    >
+                      Remove image
+                    </button>
+                    {isEditing && (
+                      <button
+                        type="button"
+                        onClick={handleAutoMatchPantone}
+                        disabled={analyzing || formData.pantoneLocked}
+                        className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md font-medium transition-colors disabled:opacity-50"
+                        title={formData.pantoneLocked ? 'Pantone is locked' : 'Analyze image and auto-match Pantone colors'}
+                      >
+                        {analyzing ? 'Analyzing...' : 'Auto-Match Pantone'}
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             </div>

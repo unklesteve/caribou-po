@@ -15,18 +15,33 @@ interface Supplier {
   name: string
 }
 
+interface EngravingArt {
+  id: string
+  name: string
+  imageUrl: string
+  position: string
+  isActive: boolean
+}
+
 interface Product {
   id: string
   sku: string
   name: string
   unitPrice: number
   unit: string
+  imageUrl?: string | null
+  engravingArt?: EngravingArt[]
 }
 
 interface YoyoColor {
   id: string
   name: string
   imageUrl: string | null
+}
+
+interface LineItemEngraving {
+  engravingArtId: string
+  quantity: number
 }
 
 interface LineItem {
@@ -36,6 +51,7 @@ interface LineItem {
   unitPrice: number
   product?: Product
   color?: YoyoColor | null
+  engravings: LineItemEngraving[]
 }
 
 interface PurchaseOrderFormProps {
@@ -65,7 +81,10 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
     initialData?.taxRate?.toString() || '0'
   )
   const [lineItems, setLineItems] = useState<LineItem[]>(
-    initialData?.lineItems || []
+    initialData?.lineItems.map(item => ({
+      ...item,
+      engravings: item.engravings || [],
+    })) || []
   )
 
   const isEditing = !!initialData?.id
@@ -97,6 +116,7 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
         unitPrice: product.unitPrice,
         product,
         color: null,
+        engravings: [],
       },
     ])
   }
@@ -111,6 +131,7 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
           productId: value as string,
           unitPrice: product.unitPrice,
           product,
+          engravings: [], // Reset engravings when product changes
         }
       }
     } else if (field === 'colorId') {
@@ -125,6 +146,25 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
     } else if (field === 'unitPrice') {
       updated[index] = { ...updated[index], unitPrice: parseFloat(value as string) || 0 }
     }
+    setLineItems(updated)
+  }
+
+  function updateEngraving(lineItemIndex: number, engravingArtId: string, quantity: number) {
+    const updated = [...lineItems]
+    const item = updated[lineItemIndex]
+    const existingIndex = item.engravings.findIndex(e => e.engravingArtId === engravingArtId)
+
+    if (quantity === 0) {
+      // Remove engraving if quantity is 0
+      item.engravings = item.engravings.filter(e => e.engravingArtId !== engravingArtId)
+    } else if (existingIndex >= 0) {
+      // Update existing engraving
+      item.engravings[existingIndex].quantity = quantity
+    } else {
+      // Add new engraving
+      item.engravings.push({ engravingArtId, quantity })
+    }
+
     setLineItems(updated)
   }
 
@@ -177,6 +217,7 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
         colorId: item.colorId,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
+        engravings: item.engravings.filter(e => e.quantity > 0),
       })),
     }
 
@@ -367,6 +408,59 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
                     </button>
                   </div>
                 </div>
+
+                {/* Engraving Art Section */}
+                {item.product?.engravingArt && item.product.engravingArt.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <label className="block text-xs font-medium text-gray-500 mb-2">
+                      Engraving Art (specify quantity for each)
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                      {item.product.engravingArt.map((art) => {
+                        const currentEngraving = item.engravings.find(e => e.engravingArtId === art.id)
+                        const currentQty = currentEngraving?.quantity || 0
+                        return (
+                          <div
+                            key={art.id}
+                            className={`relative border rounded-lg p-2 ${currentQty > 0 ? 'border-maroon-600 bg-maroon-50' : 'border-gray-200'}`}
+                          >
+                            <div className="relative w-full aspect-square mb-2 rounded overflow-hidden bg-gray-100">
+                              <Image
+                                src={formatImageUrl(art.imageUrl)!}
+                                alt={art.name}
+                                fill
+                                className="object-contain"
+                                unoptimized
+                              />
+                            </div>
+                            <div className="text-xs text-center">
+                              <div className="font-medium text-gray-900 truncate" title={art.name}>
+                                {art.name}
+                              </div>
+                              <div className="text-gray-500">{art.position}</div>
+                            </div>
+                            <div className="mt-2">
+                              <input
+                                type="number"
+                                min="0"
+                                max={item.quantity}
+                                value={currentQty}
+                                onChange={(e) => updateEngraving(index, art.id, parseInt(e.target.value) || 0)}
+                                placeholder="0"
+                                className="w-full px-2 py-1 text-sm text-center border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-maroon-600"
+                              />
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                    {item.engravings.length > 0 && (
+                      <div className="mt-2 text-xs text-gray-600">
+                        Total engravings: {item.engravings.reduce((sum, e) => sum + e.quantity, 0)} / {item.quantity} units
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>

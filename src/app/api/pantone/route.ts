@@ -17,6 +17,15 @@ export async function GET(request: NextRequest) {
     orderBy: { code: 'asc' },
   })
 
+  // Sort to prioritize Coated colors (ending in " C") first
+  pantones.sort((a, b) => {
+    const aIsCoated = a.code.endsWith(' C')
+    const bIsCoated = b.code.endsWith(' C')
+    if (aIsCoated && !bIsCoated) return -1
+    if (!aIsCoated && bIsCoated) return 1
+    return a.code.localeCompare(b.code)
+  })
+
   return NextResponse.json(pantones)
 }
 

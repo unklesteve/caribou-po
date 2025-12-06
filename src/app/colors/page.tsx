@@ -19,26 +19,49 @@ interface PantoneChip {
   }
 }
 
+interface ColorTag {
+  id: string
+  name: string
+}
+
 interface YoyoColor {
   id: string
   name: string
   imageUrl: string | null
   description: string | null
   isActive: boolean
+  pantoneLocked: boolean
   pantoneChips: PantoneChip[]
+  tags: ColorTag[]
 }
 
 export default function ColorsPage() {
   const [colors, setColors] = useState<YoyoColor[]>([])
+  const [tags, setTags] = useState<ColorTag[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
-  const [seeding, setSeeding] = useState(false)
-  const [analyzing, setAnalyzing] = useState(false)
+  const [seedingTags, setSeedingTags] = useState(false)
   const [migrating, setMigrating] = useState(false)
 
   useEffect(() => {
     fetchColors()
+    fetchTags()
   }, [search])
+
+  async function fetchTags() {
+    const res = await fetch('/api/tags')
+    const data = await res.json()
+    setTags(data)
+  }
+
+  async function handleSeedTags() {
+    setSeedingTags(true)
+    const res = await fetch('/api/tags/seed', { method: 'POST' })
+    const data = await res.json()
+    alert(data.message)
+    fetchTags()
+    setSeedingTags(false)
+  }
 
   async function fetchColors() {
     setLoading(true)
@@ -50,46 +73,10 @@ export default function ColorsPage() {
     setLoading(false)
   }
 
-  async function handleSeedColors() {
-    if (!confirm('This will import all CLYW colors from the database. Continue?')) return
-    setSeeding(true)
-    const res = await fetch('/api/colors/seed', { method: 'POST' })
-    const data = await res.json()
-    alert(data.message)
-    fetchColors()
-    setSeeding(false)
-  }
-
   async function handleDelete(id: string) {
     if (!confirm('Are you sure you want to delete this color?')) return
     await fetch(`/api/colors/${id}`, { method: 'DELETE' })
     fetchColors()
-  }
-
-  async function handleAnalyzeColors() {
-    if (!confirm('Analyze all color images and auto-assign closest Pantone matches? This may take a few minutes.')) return
-    setAnalyzing(true)
-    try {
-      const res = await fetch('/api/colors/analyze', { method: 'POST' })
-      const text = await res.text()
-      let data
-      try {
-        data = JSON.parse(text)
-      } catch {
-        alert(`Server error: ${text.substring(0, 200)}`)
-        setAnalyzing(false)
-        return
-      }
-      if (data.success) {
-        alert(data.message)
-        fetchColors()
-      } else {
-        alert(`Error: ${data.error}`)
-      }
-    } catch (error) {
-      alert(`Failed to analyze colors: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    }
-    setAnalyzing(false)
   }
 
   async function handleMigrateImages() {
@@ -122,20 +109,6 @@ export default function ColorsPage() {
           >
             {migrating ? 'Migrating...' : 'Download Images'}
           </button>
-          <button
-            onClick={handleAnalyzeColors}
-            disabled={analyzing}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium transition-colors disabled:opacity-50"
-          >
-            {analyzing ? 'Analyzing...' : 'Auto-Match Pantone'}
-          </button>
-          <button
-            onClick={handleSeedColors}
-            disabled={seeding}
-            className="bg-caramel-600 hover:bg-caramel-700 text-white px-4 py-2 rounded-md font-medium transition-colors disabled:opacity-50"
-          >
-            {seeding ? 'Importing...' : 'Import CLYW Colors'}
-          </button>
           <Link
             href="/colors/new"
             className="bg-maroon-800 hover:bg-maroon-900 text-white px-4 py-2 rounded-md font-medium transition-colors"
@@ -145,14 +118,59 @@ export default function ColorsPage() {
         </div>
       </div>
 
-      <div className="mb-6">
+      <div className="mb-6 space-y-3">
         <input
           type="text"
-          placeholder="Search colors..."
+          placeholder="Search colors or type a tag name (e.g., Fade, Splash, Untagged)..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full max-w-md px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600"
         />
+        <div className="flex flex-wrap gap-2 items-center">
+          <span className="text-sm text-gray-500">Filter by tag:</span>
+          <button
+            onClick={() => setSearch('')}
+            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+              search === ''
+                ? 'bg-maroon-800 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            All
+          </button>
+          {tags.map((tag) => (
+            <button
+              key={tag.id}
+              onClick={() => setSearch(tag.name)}
+              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                search.toLowerCase() === tag.name.toLowerCase()
+                  ? 'bg-maroon-800 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {tag.name}
+            </button>
+          ))}
+          <button
+            onClick={() => setSearch('Untagged')}
+            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+              search.toLowerCase() === 'untagged'
+                ? 'bg-maroon-800 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Untagged
+          </button>
+          {tags.length === 0 && (
+            <button
+              onClick={handleSeedTags}
+              disabled={seedingTags}
+              className="px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors disabled:opacity-50"
+            >
+              {seedingTags ? 'Seeding...' : 'Seed Tags'}
+            </button>
+          )}
+        </div>
       </div>
 
       {loading ? (
@@ -160,13 +178,12 @@ export default function ColorsPage() {
       ) : colors.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-lg shadow">
           <p className="text-gray-500 mb-4">No colors found</p>
-          <button
-            onClick={handleSeedColors}
-            disabled={seeding}
+          <Link
+            href="/colors/new"
             className="text-maroon-800 hover:text-maroon-900 font-medium"
           >
-            Import CLYW colors to get started
-          </button>
+            Add your first color
+          </Link>
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -194,6 +211,24 @@ export default function ColorsPage() {
                 <h3 className="font-medium text-gray-900 text-sm truncate">
                   {color.name}
                 </h3>
+                {color.tags.length > 0 ? (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {color.tags.map((tag) => (
+                      <span
+                        key={tag.id}
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700"
+                      >
+                        {tag.name}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mt-1">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">
+                      Untagged
+                    </span>
+                  </div>
+                )}
                 {color.pantoneChips.length > 0 && (
                   <div className="flex gap-1 mt-2">
                     {color.pantoneChips.slice(0, 4).map((chip) => (
@@ -212,15 +247,25 @@ export default function ColorsPage() {
                   </div>
                 )}
                 <div className="flex justify-between items-center mt-2">
-                  <span
-                    className={`text-xs px-2 py-0.5 rounded-full ${
-                      color.isActive
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-gray-100 text-gray-600'
-                    }`}
-                  >
-                    {color.isActive ? 'Active' : 'Inactive'}
-                  </span>
+                  <div className="flex items-center gap-1">
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full ${
+                        color.isActive
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-gray-100 text-gray-600'
+                      }`}
+                    >
+                      {color.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                    {color.pantoneLocked && (
+                      <span
+                        className="text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800"
+                        title="Pantone selection locked - excluded from Auto-Match"
+                      >
+                        🔒
+                      </span>
+                    )}
+                  </div>
                   <div className="opacity-0 group-hover:opacity-100 transition-opacity">
                     <Link
                       href={`/colors/${color.id}/edit`}

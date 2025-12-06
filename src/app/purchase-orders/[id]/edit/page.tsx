@@ -15,8 +15,16 @@ export default async function EditPurchaseOrderPage({
     include: {
       lineItems: {
         include: {
-          product: true,
+          product: {
+            include: {
+              engravingArt: {
+                where: { isActive: true },
+                orderBy: { position: 'asc' },
+              },
+            },
+          },
           color: true,
+          engravings: true,
         },
       },
     },
@@ -44,6 +52,10 @@ export default async function EditPurchaseOrderPage({
       unitPrice: item.unitPrice,
       product: item.product,
       color: item.color,
+      engravings: item.engravings.map((e) => ({
+        engravingArtId: e.engravingArtId,
+        quantity: e.quantity,
+      })),
     })),
   }
 

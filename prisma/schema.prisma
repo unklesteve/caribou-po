@@ -33,6 +33,7 @@ model Product {
   sku         String   @unique
   name        String
   description String?
+  imageUrl    String?
   unitPrice   Float
   unit        String   @default("each")
   category    String?
@@ -40,7 +41,36 @@ model Product {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  lineItems LineItem[]
+  lineItems    LineItem[]
+  engravingArt EngravingArt[]
+  quotes       ProductQuote[]
+}
+
+model ProductQuote {
+  id        String   @id @default(cuid())
+  productId String
+  quoteDate DateTime
+  unitPrice Float
+  notes     String?
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, quoteDate])
+}
+
+model EngravingArt {
+  id        String   @id @default(cuid())
+  name      String
+  imageUrl  String
+  position  String   // "Side 1", "Side 2", "Rim"
+  productId String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product          Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  lineItemEngravings LineItemEngraving[]
 }
 
 model PurchaseOrder {
@@ -70,9 +100,23 @@ model LineItem {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  product       Product       @relation(fields: [productId], references: [id])
-  color         YoyoColor?    @relation(fields: [colorId], references: [id])
+  purchaseOrder PurchaseOrder       @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product       Product             @relation(fields: [productId], references: [id])
+  color         YoyoColor?          @relation(fields: [colorId], references: [id])
+  engravings    LineItemEngraving[]
+}
+
+// Junction table for line items and their engraving selections with quantities
+model LineItemEngraving {
+  id             String @id @default(cuid())
+  lineItemId     String
+  engravingArtId String
+  quantity       Int    // Number of units with this engraving
+
+  lineItem    LineItem     @relation(fields: [lineItemId], references: [id], onDelete: Cascade)
+  engravingArt EngravingArt @relation(fields: [engravingArtId], references: [id], onDelete: Cascade)
+
+  @@unique([lineItemId, engravingArtId])
 }
 
 model POCounter {
@@ -92,6 +136,15 @@ model YoyoColor {
 
   pantoneChips ColorPantone[]
   lineItems    LineItem[]
+  tags         ColorTag[]
+}
+
+model ColorTag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  colors YoyoColor[]
 }
 
 model PantoneChip {

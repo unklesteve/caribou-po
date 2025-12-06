@@ -10,6 +10,14 @@ interface EditProductPageProps {
 export default async function EditProductPage({ params }: EditProductPageProps) {
   const product = await prisma.product.findUnique({
     where: { id: params.id },
+    include: {
+      engravingArt: {
+        orderBy: { position: 'asc' },
+      },
+      quotes: {
+        orderBy: { quoteDate: 'desc' },
+      },
+    },
   })
 
   if (!product) {
@@ -21,10 +29,18 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
     sku: product.sku,
     name: product.name,
     description: product.description || '',
+    imageUrl: product.imageUrl || '',
     unitPrice: product.unitPrice.toString(),
     unit: product.unit,
     category: product.category || '',
     isActive: product.isActive,
+    engravingArt: product.engravingArt,
+    quotes: product.quotes.map(q => ({
+      id: q.id,
+      quoteDate: q.quoteDate.toISOString(),
+      unitPrice: q.unitPrice,
+      notes: q.notes,
+    })),
   }
 
   return (

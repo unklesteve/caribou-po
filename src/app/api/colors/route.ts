@@ -6,14 +6,34 @@ export async function GET(request: NextRequest) {
   const search = searchParams.get('search') || ''
   const activeOnly = searchParams.get('activeOnly') === 'true'
 
+  // Check if search term matches a tag name or "untagged"
+  const searchLower = search.toLowerCase().trim()
+  const isUntaggedSearch = searchLower === 'untagged'
+
+  // Find matching tag if search matches a tag name
+  let matchingTag = null
+  if (search && !isUntaggedSearch) {
+    matchingTag = await prisma.colorTag.findFirst({
+      where: { name: { equals: search } },
+    })
+    // Try case-insensitive match
+    if (!matchingTag) {
+      const allTags = await prisma.colorTag.findMany()
+      matchingTag = allTags.find(t => t.name.toLowerCase() === searchLower) || null
+    }
+  }
+
   const colors = await prisma.yoyoColor.findMany({
     where: {
       AND: [
-        search
-          ? {
-              name: { contains: search },
-            }
-          : {},
+        // If searching for a tag, filter by that tag
+        matchingTag
+          ? { tags: { some: { id: matchingTag.id } } }
+          : isUntaggedSearch
+            ? { tags: { none: {} } }
+            : search
+              ? { name: { contains: search } }
+              : {},
         activeOnly ? { isActive: true } : {},
       ],
     },
@@ -22,6 +42,7 @@ export async function GET(request: NextRequest) {
         include: { pantone: true },
         orderBy: { orderIndex: 'asc' },
       },
+      tags: true,
     },
     orderBy: { name: 'asc' },
   })
@@ -47,12 +68,16 @@ export async function POST(request: NextRequest) {
             })),
           }
         : undefined,
+      tags: body.tagIds?.length
+        ? { connect: body.tagIds.map((id: string) => ({ id })) }
+        : undefined,
     },
     include: {
       pantoneChips: {
         include: { pantone: true },
         orderBy: { orderIndex: 'asc' },
       },
+      tags: true,
     },
   })
 

@@ -7,6 +7,14 @@ export async function GET(
 ) {
   const product = await prisma.product.findUnique({
     where: { id: params.id },
+    include: {
+      engravingArt: {
+        orderBy: { position: 'asc' },
+      },
+      quotes: {
+        orderBy: { quoteDate: 'desc' },
+      },
+    },
   })
 
   if (!product) {
@@ -28,10 +36,19 @@ export async function PUT(
       sku: body.sku,
       name: body.name,
       description: body.description || null,
+      imageUrl: body.imageUrl || null,
       unitPrice: parseFloat(body.unitPrice),
       unit: body.unit || 'each',
       category: body.category || null,
       isActive: body.isActive ?? true,
+    },
+    include: {
+      engravingArt: {
+        orderBy: { position: 'asc' },
+      },
+      quotes: {
+        orderBy: { quoteDate: 'desc' },
+      },
     },
   })
 

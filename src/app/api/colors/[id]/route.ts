@@ -12,6 +12,7 @@ export async function GET(
         include: { pantone: true },
         orderBy: { orderIndex: 'asc' },
       },
+      tags: true,
     },
   })
 
@@ -49,12 +50,17 @@ export async function PUT(
             })),
           }
         : undefined,
+      // Replace all tags with the new selection
+      tags: {
+        set: body.tagIds?.map((id: string) => ({ id })) || [],
+      },
     },
     include: {
       pantoneChips: {
         include: { pantone: true },
         orderBy: { orderIndex: 'asc' },
       },
+      tags: true,
     },
   })
 

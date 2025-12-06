@@ -15,6 +15,7 @@ export default async function EditColorPage({ params }: EditColorPageProps) {
         include: { pantone: true },
         orderBy: { orderIndex: 'asc' },
       },
+      tags: true,
     },
   })
 
@@ -30,6 +31,7 @@ export default async function EditColorPage({ params }: EditColorPageProps) {
     isActive: color.isActive,
     pantoneLocked: color.pantoneLocked,
     pantoneIds: color.pantoneChips.map((cp) => cp.pantoneId),
+    tagIds: color.tags.map((t) => t.id),
   }
 
   return (

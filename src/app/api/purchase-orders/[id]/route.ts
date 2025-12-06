@@ -11,13 +11,25 @@ export async function GET(
       supplier: true,
       lineItems: {
         include: {
-          product: true,
+          product: {
+            include: {
+              engravingArt: {
+                where: { isActive: true },
+                orderBy: { position: 'asc' },
+              },
+            },
+          },
           color: {
             include: {
               pantoneChips: {
                 include: { pantone: true },
                 orderBy: { orderIndex: 'asc' },
               },
+            },
+          },
+          engravings: {
+            include: {
+              engravingArt: true,
             },
           },
         },
@@ -59,11 +71,17 @@ export async function PUT(
       shippingCost: parseFloat(body.shippingCost) || 0,
       taxRate: parseFloat(body.taxRate) || 0,
       lineItems: {
-        create: body.lineItems.map((item: { productId: string; colorId?: string | null; quantity: number; unitPrice: number }) => ({
+        create: body.lineItems.map((item: { productId: string; colorId?: string | null; quantity: number; unitPrice: number; engravings?: { engravingArtId: string; quantity: number }[] }) => ({
           productId: item.productId,
           colorId: item.colorId || null,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
+          engravings: item.engravings?.length ? {
+            create: item.engravings.map((eng) => ({
+              engravingArtId: eng.engravingArtId,
+              quantity: eng.quantity,
+            })),
+          } : undefined,
         })),
       },
     },
@@ -71,13 +89,25 @@ export async function PUT(
       supplier: true,
       lineItems: {
         include: {
-          product: true,
+          product: {
+            include: {
+              engravingArt: {
+                where: { isActive: true },
+                orderBy: { position: 'asc' },
+              },
+            },
+          },
           color: {
             include: {
               pantoneChips: {
                 include: { pantone: true },
                 orderBy: { orderIndex: 'asc' },
               },
+            },
+          },
+          engravings: {
+            include: {
+              engravingArt: true,
             },
           },
         },
@@ -112,13 +142,25 @@ export async function PATCH(
       supplier: true,
       lineItems: {
         include: {
-          product: true,
+          product: {
+            include: {
+              engravingArt: {
+                where: { isActive: true },
+                orderBy: { position: 'asc' },
+              },
+            },
+          },
           color: {
             include: {
               pantoneChips: {
                 include: { pantone: true },
                 orderBy: { orderIndex: 'asc' },
               },
+            },
+          },
+          engravings: {
+            include: {
+              engravingArt: true,
             },
           },
         },
