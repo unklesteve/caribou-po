@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
 import { ImportArchiveButton } from '@/components/ImportArchiveButton'
+import { SeedPantoneButton } from '@/components/SeedPantoneButton'
 
 async function getStats() {
   const [
@@ -114,6 +115,7 @@ export default async function DashboardPage() {
             Add Product
           </Link>
           <ImportArchiveButton />
+          <SeedPantoneButton />
         </div>
       </div>
 
