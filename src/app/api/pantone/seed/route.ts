@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { NextResponse } from 'next/server'
-import pantoneData from '@/data/pantone-colors.json'
+import pantoneNumbers from '@/data/pantone-numbers.json'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -12,11 +12,9 @@ function formatPantoneName(name: string): string {
     .join(' ')
 }
 
-function formatPantoneCode(name: string): string {
-  return 'PANTONE ' + name
-    .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
+type PantoneEntry = {
+  name: string
+  hex: string
 }
 
 export async function POST() {
@@ -24,12 +22,11 @@ export async function POST() {
     let created = 0
     let skipped = 0
 
-    // Only process entries that have both name and hex value
-    const validCount = Math.min(pantoneData.names.length, pantoneData.values.length)
+    const entries = Object.entries(pantoneNumbers) as [string, PantoneEntry][]
 
-    for (let i = 0; i < validCount; i++) {
-      const name = pantoneData.names[i]
-      const hex = pantoneData.values[i]
+    for (const [number, data] of entries) {
+      const hex = data.hex
+      const name = data.name
 
       // Skip if hex is missing or invalid
       if (!hex || typeof hex !== 'string') {
@@ -37,8 +34,9 @@ export async function POST() {
         continue
       }
 
-      const code = formatPantoneCode(name)
+      const code = `PANTONE ${number} TCX`
       const displayName = formatPantoneName(name)
+      const hexColor = hex.startsWith('#') ? hex : `#${hex}`
 
       // Check if already exists
       const existing = await prisma.pantoneChip.findFirst({
@@ -59,7 +57,7 @@ export async function POST() {
         data: {
           code,
           name: displayName,
-          hexColor: hex,
+          hexColor,
         },
       })
       created++
@@ -68,7 +66,7 @@ export async function POST() {
     return NextResponse.json({
       success: true,
       message: `Imported ${created} Pantone colors (${skipped} skipped as duplicates)`,
-      total: pantoneData.names.length,
+      total: entries.length,
       created,
       skipped,
     })
@@ -84,10 +82,10 @@ export async function POST() {
 
 export async function GET() {
   const count = await prisma.pantoneChip.count()
-  const validCount = Math.min(pantoneData.names.length, pantoneData.values.length)
+  const entries = Object.keys(pantoneNumbers)
   return NextResponse.json({
     message: 'POST to this endpoint to import Pantone colors',
     currentCount: count,
-    availableToImport: validCount,
+    availableToImport: entries.length,
   })
 }
