@@ -221,6 +221,42 @@ export function ColorForm({ initialData }: ColorFormProps) {
               className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600"
             />
           </div>
+
+          {formData.pantoneIds.length > 0 && (
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Selected Pantone Colors
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {formData.pantoneIds.map((id) => {
+                  const pantone = pantones.find((p) => p.id === id)
+                  if (!pantone) return null
+                  return (
+                    <div
+                      key={id}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-md"
+                    >
+                      <div
+                        className="w-6 h-6 rounded-sm border border-gray-300"
+                        style={{ backgroundColor: pantone.hexColor }}
+                      />
+                      <span className="text-sm font-medium text-gray-700">
+                        {pantone.code}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => togglePantone(id)}
+                        className="text-gray-400 hover:text-red-600 ml-1"
+                        title="Remove"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
