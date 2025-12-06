@@ -24,9 +24,18 @@ export async function POST() {
     let created = 0
     let skipped = 0
 
-    for (let i = 0; i < pantoneData.names.length; i++) {
+    // Only process entries that have both name and hex value
+    const validCount = Math.min(pantoneData.names.length, pantoneData.values.length)
+
+    for (let i = 0; i < validCount; i++) {
       const name = pantoneData.names[i]
       const hex = pantoneData.values[i]
+
+      // Skip if hex is missing or invalid
+      if (!hex || typeof hex !== 'string') {
+        skipped++
+        continue
+      }
 
       const code = formatPantoneCode(name)
       const displayName = formatPantoneName(name)
@@ -75,9 +84,10 @@ export async function POST() {
 
 export async function GET() {
   const count = await prisma.pantoneChip.count()
+  const validCount = Math.min(pantoneData.names.length, pantoneData.values.length)
   return NextResponse.json({
     message: 'POST to this endpoint to import Pantone colors',
     currentCount: count,
-    availableToImport: pantoneData.names.length,
+    availableToImport: validCount,
   })
 }
