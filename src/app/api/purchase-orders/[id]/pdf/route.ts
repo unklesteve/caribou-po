@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 import { jsPDF } from 'jspdf'
+import fs from 'fs'
+import path from 'path'
 
 function formatDate(date: Date): string {
   return date.toLocaleDateString('en-US', {
@@ -8,6 +10,13 @@ function formatDate(date: Date): string {
     month: 'long',
     day: 'numeric',
   })
+}
+
+// Load logo as base64
+function getLogoBase64(): string {
+  const logoPath = path.join(process.cwd(), 'public', 'caribou-logo.png')
+  const logoBuffer = fs.readFileSync(logoPath)
+  return logoBuffer.toString('base64')
 }
 
 export async function GET(
@@ -43,14 +52,22 @@ export async function GET(
   const pageWidth = doc.internal.pageSize.getWidth()
   let y = 20
 
-  // Header
-  doc.setFontSize(24)
-  doc.setFont('helvetica', 'bold')
-  doc.text('Caribou Lodge', 20, y)
-
-  doc.setFontSize(12)
-  doc.setFont('helvetica', 'normal')
-  doc.text('Yo-Yo Company', 20, y + 8)
+  // Header with logo
+  try {
+    const logoBase64 = getLogoBase64()
+    // Logo dimensions: original is 300x162, scale to fit nicely
+    const logoWidth = 60
+    const logoHeight = (162 / 300) * logoWidth
+    doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', 20, y - 5, logoWidth, logoHeight)
+  } catch {
+    // Fallback to text if logo can't be loaded
+    doc.setFontSize(24)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Caribou Lodge', 20, y)
+    doc.setFontSize(12)
+    doc.setFont('helvetica', 'normal')
+    doc.text('Yo-Yo Company', 20, y + 8)
+  }
 
   // PO Number and Date
   doc.setFontSize(20)

@@ -24,7 +24,6 @@ export default async function EditPurchaseOrderPage({
             },
           },
           color: true,
-          ringColor: true,
           engravings: true,
         },
       },
@@ -47,11 +46,10 @@ export default async function EditPurchaseOrderPage({
     lineItems: po.lineItems.map((item) => ({
       productId: item.productId,
       colorId: item.colorId,
-      ringColorId: item.ringColorId,
+      ringColor: item.ringColor || '',
       quantity: item.quantity,
       product: item.product,
       color: item.color,
-      ringColor: item.ringColor,
       engravings: item.engravings.map((e) => ({
         engravingArtId: e.engravingArtId,
       })),

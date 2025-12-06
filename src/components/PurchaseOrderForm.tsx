@@ -47,11 +47,10 @@ interface LineItemEngraving {
 interface LineItem {
   productId: string
   colorId: string | null
-  ringColorId: string | null
+  ringColor: string
   quantity: number
   product?: Product
   color?: YoyoColor | null
-  ringColor?: YoyoColor | null
   engravings: LineItemEngraving[]
 }
 
@@ -109,11 +108,10 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
       {
         productId: product.id,
         colorId: null,
-        ringColorId: null,
+        ringColor: '',
         quantity: 1,
         product,
         color: null,
-        ringColor: null,
         engravings: [],
       },
     ])
@@ -128,8 +126,7 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
           ...updated[index],
           productId: value as string,
           product,
-          ringColorId: null, // Reset ring color when product changes
-          ringColor: null,
+          ringColor: '', // Reset ring color when product changes
           engravings: [], // Reset engravings when product changes
         }
       }
@@ -140,12 +137,10 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
         colorId: value as string | null,
         color,
       }
-    } else if (field === 'ringColorId') {
-      const ringColor = value ? colors.find((c) => c.id === value) : null
+    } else if (field === 'ringColor') {
       updated[index] = {
         ...updated[index],
-        ringColorId: value as string | null,
-        ringColor,
+        ringColor: value as string,
       }
     } else if (field === 'quantity') {
       updated[index] = { ...updated[index], quantity: parseInt(value as string) || 1 }
@@ -192,7 +187,7 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
       lineItems: lineItems.map((item) => ({
         productId: item.productId,
         colorId: item.colorId,
-        ringColorId: item.ringColorId,
+        ringColor: item.ringColor || null,
         quantity: item.quantity,
         engravings: item.engravings,
       })),
@@ -328,39 +323,21 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
                     </div>
                   </div>
 
-                  {/* Ring Color Selection - Only show for steel products */}
+                  {/* Ring Color - Only show for steel products */}
                   {hasSteel(item.product?.material) && (
                     <div className="md:col-span-2">
                       <label className="block text-xs font-medium text-gray-500 mb-1">
                         Ring Color
                       </label>
-                      <div className="flex gap-2 items-center">
-                        {item.ringColor?.imageUrl && (
-                          <div className="relative w-10 h-10 rounded-md overflow-hidden flex-shrink-0 border border-gray-200">
-                            <Image
-                              src={formatImageUrl(item.ringColor.imageUrl)!}
-                              alt={item.ringColor.name}
-                              fill
-                              className="object-cover"
-                              unoptimized
-                            />
-                          </div>
-                        )}
-                        <select
-                          value={item.ringColorId || ''}
-                          onChange={(e) =>
-                            updateLineItem(index, 'ringColorId', e.target.value || null)
-                          }
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600 text-sm"
-                        >
-                          <option value="">No ring color</option>
-                          {colors.map((color) => (
-                            <option key={color.id} value={color.id}>
-                              {color.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                      <input
+                        type="text"
+                        value={item.ringColor}
+                        onChange={(e) =>
+                          updateLineItem(index, 'ringColor', e.target.value)
+                        }
+                        placeholder="e.g. Raw, Black, Silver"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600 text-sm"
+                      />
                     </div>
                   )}
 

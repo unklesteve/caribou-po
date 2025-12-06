@@ -94,15 +94,14 @@ model LineItem {
   purchaseOrderId String
   productId       String
   colorId         String?
-  ringColorId     String?  // For products with steel rings
+  ringColor       String?  // Text field for steel ring color
   quantity        Int
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   purchaseOrder PurchaseOrder       @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
   product       Product             @relation(fields: [productId], references: [id])
-  color         YoyoColor?          @relation("LineItemColor", fields: [colorId], references: [id])
-  ringColor     YoyoColor?          @relation("LineItemRingColor", fields: [ringColorId], references: [id])
+  color         YoyoColor?          @relation(fields: [colorId], references: [id])
   engravings    LineItemEngraving[]
 }
 
@@ -133,10 +132,9 @@ model YoyoColor {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  pantoneChips      ColorPantone[]
-  lineItems         LineItem[]     @relation("LineItemColor")
-  ringColorLineItems LineItem[]    @relation("LineItemRingColor")
-  tags              ColorTag[]
+  pantoneChips ColorPantone[]
+  lineItems    LineItem[]
+  tags         ColorTag[]
 }
 
 model ColorTag {
