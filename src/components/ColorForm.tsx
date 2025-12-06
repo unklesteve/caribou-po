@@ -24,6 +24,7 @@ interface ColorFormProps {
     imageUrl: string
     description: string
     isActive: boolean
+    pantoneLocked: boolean
     pantoneIds: string[]
   }
 }
@@ -33,6 +34,7 @@ const defaultData = {
   imageUrl: '',
   description: '',
   isActive: true,
+  pantoneLocked: false,
   pantoneIds: [] as string[],
 }
 
@@ -155,18 +157,33 @@ export function ColorForm({ initialData }: ColorFormProps) {
             />
           </div>
 
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              name="isActive"
-              id="isActive"
-              checked={formData.isActive}
-              onChange={handleChange}
-              className="h-4 w-4 text-maroon-800 focus:ring-caramel-600 border-gray-300 rounded"
-            />
-            <label htmlFor="isActive" className="ml-2 text-sm text-gray-700">
-              Active (available for selection)
-            </label>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                name="isActive"
+                id="isActive"
+                checked={formData.isActive}
+                onChange={handleChange}
+                className="h-4 w-4 text-maroon-800 focus:ring-caramel-600 border-gray-300 rounded"
+              />
+              <label htmlFor="isActive" className="ml-2 text-sm text-gray-700">
+                Active (available for selection)
+              </label>
+            </div>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                name="pantoneLocked"
+                id="pantoneLocked"
+                checked={formData.pantoneLocked}
+                onChange={handleChange}
+                className="h-4 w-4 text-maroon-800 focus:ring-caramel-600 border-gray-300 rounded"
+              />
+              <label htmlFor="pantoneLocked" className="ml-2 text-sm text-gray-700">
+                Lock Pantone selection (exclude from Auto-Match)
+              </label>
+            </div>
           </div>
 
           <div className="md:col-span-2">

@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
       imageUrl: body.imageUrl || null,
       description: body.description || null,
       isActive: body.isActive ?? true,
+      pantoneLocked: body.pantoneLocked ?? false,
       pantoneChips: body.pantoneIds?.length
         ? {
             create: body.pantoneIds.map((pantoneId: string, index: number) => ({

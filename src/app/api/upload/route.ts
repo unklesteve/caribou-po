@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { mkdir } from 'fs/promises'
+import { mkdir, writeFile } from 'fs/promises'
 import path from 'path'
 import { existsSync } from 'fs'
 
@@ -8,8 +8,6 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
-    const sharp = (await import('sharp')).default
-
     const formData = await request.formData()
     const file = formData.get('file') as File | null
     const folder = (formData.get('folder') as string) || 'colors'
@@ -30,15 +28,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Generate unique filename
+    // Generate unique filename - preserve original extension
     const timestamp = Date.now()
+    const ext = file.name.match(/\.[^/.]+$/)?.[0] || '.png'
     const safeName = file.name
       .replace(/\.[^/.]+$/, '') // Remove extension
       .replace(/[^a-zA-Z0-9-_]/g, '-') // Replace special chars
       .substring(0, 50) // Limit length
 
-    // Always save as high-quality PNG for best clarity
-    const filename = `${safeName}-${timestamp}.png`
+    const filename = `${safeName}-${timestamp}${ext}`
 
     // Ensure upload directory exists
     const uploadDir = path.join(process.cwd(), 'public', 'uploads', folder)
@@ -46,24 +44,12 @@ export async function POST(request: NextRequest) {
       await mkdir(uploadDir, { recursive: true })
     }
 
-    // Process image with sharp - high quality settings
+    // Save the file directly
     const bytes = await file.arrayBuffer()
-    const inputBuffer = Buffer.from(bytes)
-
-    const outputBuffer = await sharp(inputBuffer)
-      .resize(800, 800, {
-        fit: 'inside',
-        withoutEnlargement: true, // Don't upscale small images
-      })
-      .png({
-        quality: 100,
-        compressionLevel: 1, // Minimal compression for best quality
-      })
-      .toBuffer()
+    const buffer = Buffer.from(bytes)
 
     const filepath = path.join(uploadDir, filename)
-    const { writeFile } = await import('fs/promises')
-    await writeFile(filepath, outputBuffer)
+    await writeFile(filepath, buffer)
 
     // Return the public URL
     const url = `/uploads/${folder}/${filename}`

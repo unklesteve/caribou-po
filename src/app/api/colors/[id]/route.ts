@@ -40,6 +40,7 @@ export async function PUT(
       imageUrl: body.imageUrl || null,
       description: body.description || null,
       isActive: body.isActive ?? true,
+      pantoneLocked: body.pantoneLocked ?? false,
       pantoneChips: body.pantoneIds?.length
         ? {
             create: body.pantoneIds.map((pantoneId: string, index: number) => ({

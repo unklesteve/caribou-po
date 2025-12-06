@@ -28,6 +28,7 @@ export default async function EditColorPage({ params }: EditColorPageProps) {
     imageUrl: color.imageUrl || '',
     description: color.description || '',
     isActive: color.isActive,
+    pantoneLocked: color.pantoneLocked,
     pantoneIds: color.pantoneChips.map((cp) => cp.pantoneId),
   }
 

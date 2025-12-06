@@ -331,20 +331,31 @@ function findClosestPantones(
 
 export async function POST() {
   try {
-    // Get all colors with images
+    // Get all colors with images that are not locked
     const colors = await prisma.yoyoColor.findMany({
       where: {
         imageUrl: { not: null },
+        NOT: { pantoneLocked: true },
       },
       include: {
         pantoneChips: true,
       },
     })
 
+    // Count locked colors for reporting
+    const lockedCount = await prisma.yoyoColor.count({
+      where: {
+        imageUrl: { not: null },
+        pantoneLocked: true,
+      },
+    })
+
     if (colors.length === 0) {
       return NextResponse.json({
         success: false,
-        error: 'No colors with images found.',
+        error: lockedCount > 0
+          ? `No unlocked colors with images found. ${lockedCount} colors are locked.`
+          : 'No colors with images found.',
       })
     }
 
@@ -447,9 +458,11 @@ export async function POST() {
     const successCount = results.filter((r) => r.matched > 0).length
     const failCount = results.filter((r) => r.matched === 0).length
 
+    const lockedMsg = lockedCount > 0 ? ` (${lockedCount} locked colors skipped)` : ''
+
     return NextResponse.json({
       success: true,
-      message: `Analyzed ${colors.length} colors. ${successCount} matched, ${failCount} had no close matches.`,
+      message: `Analyzed ${colors.length} colors. ${successCount} matched, ${failCount} had no close matches.${lockedMsg}`,
       results,
     })
   } catch (error) {
