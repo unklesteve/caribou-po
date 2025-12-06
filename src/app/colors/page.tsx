@@ -34,6 +34,7 @@ export default function ColorsPage() {
   const [loading, setLoading] = useState(true)
   const [seeding, setSeeding] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
+  const [migrating, setMigrating] = useState(false)
 
   useEffect(() => {
     fetchColors()
@@ -91,11 +92,36 @@ export default function ColorsPage() {
     setAnalyzing(false)
   }
 
+  async function handleMigrateImages() {
+    if (!confirm('Download all external images and store them locally? This may take a few minutes.')) return
+    setMigrating(true)
+    try {
+      const res = await fetch('/api/colors/migrate-images', { method: 'POST' })
+      const data = await res.json()
+      if (data.success) {
+        alert(data.message)
+        fetchColors()
+      } else {
+        alert(`Error: ${data.error}`)
+      }
+    } catch (error) {
+      alert(`Failed to migrate images: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+    setMigrating(false)
+  }
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Yo-Yo Colors</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={handleMigrateImages}
+            disabled={migrating}
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md font-medium transition-colors disabled:opacity-50"
+          >
+            {migrating ? 'Migrating...' : 'Download Images'}
+          </button>
           <button
             onClick={handleAnalyzeColors}
             disabled={analyzing}

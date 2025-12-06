@@ -42,6 +42,7 @@ export function ColorForm({ initialData }: ColorFormProps) {
   const [pantones, setPantones] = useState<PantoneChip[]>([])
   const [saving, setSaving] = useState(false)
   const [pantoneSearch, setPantoneSearch] = useState('')
+  const [uploading, setUploading] = useState(false)
 
   const isEditing = !!initialData?.id
 
@@ -108,6 +109,33 @@ export function ColorForm({ initialData }: ColorFormProps) {
     }
   }
 
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploading(true)
+    try {
+      const uploadData = new FormData()
+      uploadData.append('file', file)
+      uploadData.append('folder', 'colors')
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: uploadData,
+      })
+
+      const result = await res.json()
+      if (result.success) {
+        setFormData({ ...formData, imageUrl: result.url })
+      } else {
+        alert(`Upload failed: ${result.error}`)
+      }
+    } catch (error) {
+      alert('Upload failed')
+    }
+    setUploading(false)
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="bg-white shadow rounded-lg p-6">
@@ -143,27 +171,42 @@ export function ColorForm({ initialData }: ColorFormProps) {
 
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Image URL
+              Color Image
             </label>
-            <input
-              type="url"
-              name="imageUrl"
-              value={formData.imageUrl}
-              onChange={handleChange}
-              placeholder="https://example.com/image.jpg"
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600"
-            />
-            {formData.imageUrl && (
-              <div className="mt-2 relative w-32 h-32 bg-gray-100 rounded-md overflow-hidden">
-                <Image
-                  src={formatImageUrl(formData.imageUrl)!}
-                  alt="Preview"
-                  fill
-                  className="object-cover"
-                  unoptimized
+            <div className="flex items-start gap-4">
+              {formData.imageUrl && (
+                <div className="relative w-32 h-32 bg-gray-100 rounded-md overflow-hidden flex-shrink-0">
+                  <Image
+                    src={formatImageUrl(formData.imageUrl)!}
+                    alt="Preview"
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                </div>
+              )}
+              <div className="flex-1 space-y-2">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  onChange={handleFileUpload}
+                  disabled={uploading}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600 file:mr-4 file:py-1 file:px-4 file:rounded-md file:border-0 file:bg-maroon-800 file:text-white file:cursor-pointer disabled:opacity-50"
                 />
+                {uploading && (
+                  <p className="text-sm text-gray-500">Uploading...</p>
+                )}
+                {formData.imageUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, imageUrl: '' })}
+                    className="text-sm text-red-600 hover:text-red-800"
+                  >
+                    Remove image
+                  </button>
+                )}
               </div>
-            )}
+            </div>
           </div>
 
           <div className="md:col-span-2">
