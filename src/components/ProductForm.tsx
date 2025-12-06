@@ -107,18 +107,18 @@ export function ProductForm({ initialData }: ProductFormProps) {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Unit Price *
+            Unit Price
           </label>
           <div className="relative">
             <span className="absolute left-3 top-2 text-gray-500">$</span>
             <input
               type="number"
               name="unitPrice"
-              required
               min="0"
               step="0.01"
               value={formData.unitPrice}
               onChange={handleChange}
+              placeholder="0.00"
               className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600"
             />
           </div>

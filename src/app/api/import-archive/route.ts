@@ -1,6 +1,9 @@
 import { prisma } from '@/lib/prisma'
 import { NextResponse } from 'next/server'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 // Archived PO data extracted from Google Sheets
 const archivedPOs = [
   {
@@ -91,7 +94,33 @@ export async function POST() {
         })
       }
 
-      // Create the purchase order
+      // First, create or find all colors for the line items
+      const lineItemsData = []
+      for (const item of poData.lineItems) {
+        let color = await prisma.yoyoColor.findFirst({
+          where: { name: item.color },
+        })
+
+        if (!color) {
+          const rimColor = 'rimColor' in item ? item.rimColor : null
+          color = await prisma.yoyoColor.create({
+            data: {
+              name: item.color,
+              description: item.style + (rimColor ? ` | Rim: ${rimColor}` : ''),
+              isActive: true,
+            },
+          })
+        }
+
+        lineItemsData.push({
+          productId: product!.id,
+          colorId: color.id,
+          quantity: item.quantity,
+          unitPrice: 0,
+        })
+      }
+
+      // Create the purchase order with line items
       const po = await prisma.purchaseOrder.create({
         data: {
           poNumber: poData.poNumber,
@@ -104,32 +133,7 @@ export async function POST() {
           sentAt: poData.date,
           receivedAt: poData.date,
           lineItems: {
-            create: await Promise.all(
-              poData.lineItems.map(async (item) => {
-                // Try to find existing color or create placeholder
-                let color = await prisma.yoyoColor.findFirst({
-                  where: { name: item.color },
-                })
-
-                if (!color) {
-                  const rimColor = 'rimColor' in item ? item.rimColor : null
-                  color = await prisma.yoyoColor.create({
-                    data: {
-                      name: item.color,
-                      description: item.style + (rimColor ? ` | Rim: ${rimColor}` : ''),
-                      isActive: true,
-                    },
-                  })
-                }
-
-                return {
-                  productId: product!.id,
-                  colorId: color.id,
-                  quantity: item.quantity,
-                  unitPrice: 0, // Price not in archive
-                }
-              })
-            ),
+            create: lineItemsData,
           },
         },
         include: {
@@ -151,8 +155,9 @@ export async function POST() {
     })
   } catch (error) {
     console.error('Import error:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json(
-      { success: false, error: 'Failed to import archive' },
+      { success: false, error: `Failed to import archive: ${errorMessage}` },
       { status: 500 }
     )
   }
