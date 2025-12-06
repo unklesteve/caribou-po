@@ -1,26 +1,21 @@
 import { prisma } from '@/lib/prisma'
 import { NextResponse } from 'next/server'
-import sharp from 'sharp'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-export const maxDuration = 300 // 5 minutes for processing
 
 // Convert hex to RGB
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
-  return result
-    ? {
-        r: parseInt(result[1], 16),
-        g: parseInt(result[2], 16),
-        b: parseInt(result[3], 16),
-      }
-    : { r: 0, g: 0, b: 0 }
+  const cleanHex = hex.replace('#', '')
+  return {
+    r: parseInt(cleanHex.substring(0, 2), 16),
+    g: parseInt(cleanHex.substring(2, 4), 16),
+    b: parseInt(cleanHex.substring(4, 6), 16),
+  }
 }
 
 // Convert RGB to LAB for better color comparison
 function rgbToLab(rgb: { r: number; g: number; b: number }): { l: number; a: number; b: number } {
-  // First convert RGB to XYZ
   let r = rgb.r / 255
   let g = rgb.g / 255
   let b = rgb.b / 255
@@ -53,106 +48,57 @@ function deltaE(lab1: { l: number; a: number; b: number }, lab2: { l: number; a:
   )
 }
 
-// Extract dominant colors from image using k-means clustering
-async function extractDominantColors(imageUrl: string, numColors: number = 5): Promise<{ r: number; g: number; b: number }[]> {
-  // Fetch the image
-  const response = await fetch(imageUrl.includes('?') ? imageUrl : `${imageUrl}?ssl=1`)
+// Extract colors from image using sharp
+async function extractDominantColors(imageUrl: string): Promise<{ r: number; g: number; b: number }[]> {
+  // Dynamic import of sharp to avoid build issues
+  const sharp = (await import('sharp')).default
+
+  const fullUrl = imageUrl.includes('?') ? imageUrl : `${imageUrl}?ssl=1`
+
+  const response = await fetch(fullUrl, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (compatible; ColorAnalyzer/1.0)',
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch image: ${response.status}`)
+  }
+
   const arrayBuffer = await response.arrayBuffer()
   const buffer = Buffer.from(arrayBuffer)
 
-  // Resize image for faster processing and get raw pixel data
-  const { data, info } = await sharp(buffer)
-    .resize(100, 100, { fit: 'cover' })
+  // Get image stats which includes dominant color
+  const { dominant, channels } = await sharp(buffer)
+    .resize(50, 50, { fit: 'cover' })
     .removeAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true })
+    .stats()
 
-  // Sample pixels
-  const pixels: { r: number; g: number; b: number }[] = []
-  for (let i = 0; i < data.length; i += 3) {
-    pixels.push({
-      r: data[i],
-      g: data[i + 1],
-      b: data[i + 2],
+  // Return dominant color and channel means as additional colors
+  const colors: { r: number; g: number; b: number }[] = [dominant]
+
+  // Add channel-based colors if available
+  if (channels && channels.length >= 3) {
+    colors.push({
+      r: Math.round(channels[0].mean),
+      g: Math.round(channels[1].mean),
+      b: Math.round(channels[2].mean),
     })
   }
 
-  // Simple k-means clustering
-  const colors = kMeansClustering(pixels, numColors)
   return colors
-}
-
-function kMeansClustering(
-  pixels: { r: number; g: number; b: number }[],
-  k: number
-): { r: number; g: number; b: number }[] {
-  // Initialize centroids randomly
-  let centroids: { r: number; g: number; b: number }[] = []
-  const usedIndices = new Set<number>()
-
-  while (centroids.length < k) {
-    const idx = Math.floor(Math.random() * pixels.length)
-    if (!usedIndices.has(idx)) {
-      usedIndices.add(idx)
-      centroids.push({ ...pixels[idx] })
-    }
-  }
-
-  // Run k-means iterations
-  for (let iter = 0; iter < 10; iter++) {
-    // Assign pixels to clusters
-    const clusters: { r: number; g: number; b: number }[][] = Array.from({ length: k }, () => [])
-
-    for (const pixel of pixels) {
-      let minDist = Infinity
-      let closestCluster = 0
-
-      for (let i = 0; i < k; i++) {
-        const dist = Math.sqrt(
-          Math.pow(pixel.r - centroids[i].r, 2) +
-          Math.pow(pixel.g - centroids[i].g, 2) +
-          Math.pow(pixel.b - centroids[i].b, 2)
-        )
-        if (dist < minDist) {
-          minDist = dist
-          closestCluster = i
-        }
-      }
-
-      clusters[closestCluster].push(pixel)
-    }
-
-    // Update centroids
-    centroids = clusters.map((cluster, i) => {
-      if (cluster.length === 0) return centroids[i]
-
-      const sum = cluster.reduce(
-        (acc, p) => ({ r: acc.r + p.r, g: acc.g + p.g, b: acc.b + p.b }),
-        { r: 0, g: 0, b: 0 }
-      )
-
-      return {
-        r: Math.round(sum.r / cluster.length),
-        g: Math.round(sum.g / cluster.length),
-        b: Math.round(sum.b / cluster.length),
-      }
-    })
-  }
-
-  return centroids
 }
 
 // Find closest Pantone matches for a color
 function findClosestPantones(
   color: { r: number; g: number; b: number },
-  pantones: { id: string; code: string; hexColor: string }[],
+  pantones: { id: string; code: string; hexColor: string; lab?: { l: number; a: number; b: number } }[],
   limit: number = 3
 ): { id: string; code: string; distance: number }[] {
   const colorLab = rgbToLab(color)
 
   const distances = pantones.map((pantone) => {
-    const pantoneRgb = hexToRgb(pantone.hexColor)
-    const pantoneLab = rgbToLab(pantoneRgb)
+    const pantoneLab = pantone.lab || rgbToLab(hexToRgb(pantone.hexColor))
     return {
       id: pantone.id,
       code: pantone.code,
@@ -176,8 +122,15 @@ export async function POST() {
       },
     })
 
-    // Get all Pantone chips
-    const pantones = await prisma.pantoneChip.findMany({
+    if (colors.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: 'No colors with images found.',
+      })
+    }
+
+    // Get all Pantone chips and pre-compute LAB values
+    const pantonesRaw = await prisma.pantoneChip.findMany({
       select: {
         id: true,
         code: true,
@@ -185,32 +138,40 @@ export async function POST() {
       },
     })
 
-    if (pantones.length === 0) {
+    if (pantonesRaw.length === 0) {
       return NextResponse.json({
         success: false,
         error: 'No Pantone colors found. Please seed Pantone colors first.',
       })
     }
 
-    const results: { colorId: string; colorName: string; matched: number; error?: string }[] = []
+    // Pre-compute LAB values for all Pantones
+    const pantones = pantonesRaw.map(p => ({
+      ...p,
+      lab: rgbToLab(hexToRgb(p.hexColor)),
+    }))
+
+    const results: { colorId: string; colorName: string; matched: number; pantones?: string[]; error?: string }[] = []
 
     for (const color of colors) {
       if (!color.imageUrl) continue
 
       try {
         // Extract dominant colors from image
-        const dominantColors = await extractDominantColors(color.imageUrl, 5)
+        const dominantColors = await extractDominantColors(color.imageUrl)
 
         // Find closest Pantone matches for each dominant color
         const matchedPantoneIds = new Set<string>()
+        const matchedPantoneCodes: string[] = []
 
         for (const dominantColor of dominantColors) {
-          const closestPantones = findClosestPantones(dominantColor, pantones, 2)
+          const closestPantones = findClosestPantones(dominantColor, pantones, 3)
 
-          // Only add pantones with reasonable color distance (< 30 is a good match)
+          // Only add pantones with reasonable color distance (< 25 is a good match)
           for (const match of closestPantones) {
-            if (match.distance < 30) {
+            if (match.distance < 25 && !matchedPantoneIds.has(match.id)) {
               matchedPantoneIds.add(match.id)
+              matchedPantoneCodes.push(match.code)
             }
           }
         }
@@ -236,6 +197,7 @@ export async function POST() {
             colorId: color.id,
             colorName: color.name,
             matched: matchedPantoneIds.size,
+            pantones: matchedPantoneCodes,
           })
         } else {
           results.push({
@@ -245,12 +207,13 @@ export async function POST() {
             error: 'No close Pantone matches found',
           })
         }
-      } catch (error) {
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : 'Unknown error'
         results.push({
           colorId: color.id,
           colorName: color.name,
           matched: 0,
-          error: error instanceof Error ? error.message : 'Failed to analyze image',
+          error: errorMsg,
         })
       }
     }
@@ -260,7 +223,7 @@ export async function POST() {
 
     return NextResponse.json({
       success: true,
-      message: `Analyzed ${colors.length} colors. ${successCount} matched, ${failCount} failed.`,
+      message: `Analyzed ${colors.length} colors. ${successCount} matched, ${failCount} had no close matches.`,
       results,
     })
   } catch (error) {

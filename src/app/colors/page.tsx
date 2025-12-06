@@ -70,7 +70,15 @@ export default function ColorsPage() {
     setAnalyzing(true)
     try {
       const res = await fetch('/api/colors/analyze', { method: 'POST' })
-      const data = await res.json()
+      const text = await res.text()
+      let data
+      try {
+        data = JSON.parse(text)
+      } catch {
+        alert(`Server error: ${text.substring(0, 200)}`)
+        setAnalyzing(false)
+        return
+      }
       if (data.success) {
         alert(data.message)
         fetchColors()
@@ -78,7 +86,7 @@ export default function ColorsPage() {
         alert(`Error: ${data.error}`)
       }
     } catch (error) {
-      alert('Failed to analyze colors')
+      alert(`Failed to analyze colors: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
     setAnalyzing(false)
   }
