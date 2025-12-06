@@ -74,17 +74,15 @@ model EngravingArt {
 }
 
 model PurchaseOrder {
-  id           String   @id @default(cuid())
-  poNumber     String   @unique
-  supplierId   String
-  status       String   @default("DRAFT")
-  notes        String?
-  shippingCost Float    @default(0)
-  taxRate      Float    @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  sentAt       DateTime?
-  receivedAt   DateTime?
+  id         String    @id @default(cuid())
+  poNumber   String    @unique
+  supplierId String
+  status     String    @default("DRAFT")
+  notes      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  sentAt     DateTime?
+  receivedAt DateTime?
 
   supplier  Supplier   @relation(fields: [supplierId], references: [id])
   lineItems LineItem[]
@@ -96,7 +94,6 @@ model LineItem {
   productId       String
   colorId         String?
   quantity        Int
-  unitPrice       Float
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

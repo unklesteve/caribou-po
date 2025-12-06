@@ -2,13 +2,6 @@ import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 import { jsPDF } from 'jspdf'
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(amount)
-}
-
 function formatDate(date: Date): string {
   return date.toLocaleDateString('en-US', {
     year: 'numeric',
@@ -44,14 +37,6 @@ export async function GET(
   if (!po) {
     return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 })
   }
-
-  // Calculate totals
-  const subtotal = po.lineItems.reduce(
-    (sum, item) => sum + item.quantity * item.unitPrice,
-    0
-  )
-  const tax = subtotal * (po.taxRate / 100)
-  const total = subtotal + tax + po.shippingCost
 
   // Create PDF
   const doc = new jsPDF()
@@ -111,7 +96,7 @@ export async function GET(
   y += 15
 
   // Line items table
-  const colWidths = [55, 50, 20, 28, 28]
+  const colWidths = [70, 80, 30]
   const startX = 20
   let tableY = y
 
@@ -127,10 +112,6 @@ export async function GET(
   doc.text('Color', colX, tableY + 6)
   colX += colWidths[1]
   doc.text('Qty', colX, tableY + 6)
-  colX += colWidths[2]
-  doc.text('Unit Price', colX, tableY + 6)
-  colX += colWidths[3]
-  doc.text('Total', colX, tableY + 6)
 
   tableY += 10
   doc.setTextColor(0, 0, 0)
@@ -138,7 +119,6 @@ export async function GET(
 
   // Table rows
   for (const item of po.lineItems) {
-    const lineTotal = item.quantity * item.unitPrice
     const hasColor = item.color !== null
     const pantoneChips = item.color?.pantoneChips || []
     const rowHeight = hasColor && pantoneChips.length > 0 ? 20 : 14
@@ -201,42 +181,10 @@ export async function GET(
     doc.setFontSize(8)
     doc.text(`${item.quantity} ${item.product.unit}`, colX + 2, tableY + 6)
 
-    // Unit price column
-    colX += colWidths[2]
-    doc.text(formatCurrency(item.unitPrice), colX + 2, tableY + 6)
-
-    // Total column
-    colX += colWidths[3]
-    doc.setFont('helvetica', 'bold')
-    doc.text(formatCurrency(lineTotal), colX + 2, tableY + 6)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(10)
-
     tableY += rowHeight
     doc.setDrawColor(200, 200, 200)
     doc.line(startX, tableY - 2, pageWidth - 20, tableY - 2)
   }
-
-  // Totals section
-  const totalsX = startX + colWidths[0] + colWidths[1]
-  tableY += 5
-
-  doc.text('Subtotal:', totalsX, tableY)
-  doc.text(formatCurrency(subtotal), pageWidth - 22, tableY, { align: 'right' })
-
-  tableY += 7
-  doc.text(`Tax (${po.taxRate}%):`, totalsX, tableY)
-  doc.text(formatCurrency(tax), pageWidth - 22, tableY, { align: 'right' })
-
-  tableY += 7
-  doc.text('Shipping:', totalsX, tableY)
-  doc.text(formatCurrency(po.shippingCost), pageWidth - 22, tableY, { align: 'right' })
-
-  tableY += 10
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(12)
-  doc.text('TOTAL:', totalsX, tableY)
-  doc.text(formatCurrency(total), pageWidth - 22, tableY, { align: 'right' })
 
   // Notes
   if (po.notes) {

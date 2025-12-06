@@ -41,7 +41,6 @@ interface LineItemEngraving {
 interface LineItem {
   id: string
   quantity: number
-  unitPrice: number
   product: {
     sku: string
     name: string
@@ -57,8 +56,6 @@ interface PurchaseOrder {
   poNumber: string
   status: string
   notes: string | null
-  shippingCost: number
-  taxRate: number
   createdAt: string
   sentAt: string | null
   receivedAt: string | null
@@ -72,9 +69,6 @@ interface PurchaseOrder {
     zip: string | null
   }
   lineItems: LineItem[]
-  subtotal: number
-  tax: number
-  total: number
 }
 
 const statusColors: Record<string, string> = {
@@ -124,13 +118,6 @@ export default function PurchaseOrderDetailPage({
     })
     fetchPO()
     setUpdating(false)
-  }
-
-  function formatCurrency(amount: number) {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount)
   }
 
   function formatDate(dateString: string | null) {
@@ -232,12 +219,6 @@ export default function PurchaseOrderDetailPage({
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                     Qty
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    Unit Price
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    Total
-                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -324,49 +305,9 @@ export default function PurchaseOrderDetailPage({
                     <td className="px-4 py-3 text-right text-gray-900">
                       {item.quantity} {item.product.unit}
                     </td>
-                    <td className="px-4 py-3 text-right text-gray-900">
-                      {formatCurrency(item.unitPrice)}
-                    </td>
-                    <td className="px-4 py-3 text-right font-medium text-gray-900">
-                      {formatCurrency(item.quantity * item.unitPrice)}
-                    </td>
                   </tr>
                 ))}
               </tbody>
-              <tfoot className="bg-gray-50">
-                <tr>
-                  <td colSpan={5} className="px-4 py-3 text-right text-gray-600">
-                    Subtotal:
-                  </td>
-                  <td className="px-4 py-3 text-right font-medium text-gray-900">
-                    {formatCurrency(po.subtotal)}
-                  </td>
-                </tr>
-                <tr>
-                  <td colSpan={5} className="px-4 py-3 text-right text-gray-600">
-                    Tax ({po.taxRate}%):
-                  </td>
-                  <td className="px-4 py-3 text-right font-medium text-gray-900">
-                    {formatCurrency(po.tax)}
-                  </td>
-                </tr>
-                <tr>
-                  <td colSpan={5} className="px-4 py-3 text-right text-gray-600">
-                    Shipping:
-                  </td>
-                  <td className="px-4 py-3 text-right font-medium text-gray-900">
-                    {formatCurrency(po.shippingCost)}
-                  </td>
-                </tr>
-                <tr className="border-t-2">
-                  <td colSpan={5} className="px-4 py-3 text-right text-lg font-medium">
-                    Total:
-                  </td>
-                  <td className="px-4 py-3 text-right text-lg font-bold text-maroon-800">
-                    {formatCurrency(po.total)}
-                  </td>
-                </tr>
-              </tfoot>
             </table>
           </div>
 

@@ -41,15 +41,7 @@ export async function GET(
     return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 })
   }
 
-  // Calculate totals
-  const subtotal = purchaseOrder.lineItems.reduce(
-    (sum, item) => sum + item.quantity * item.unitPrice,
-    0
-  )
-  const tax = subtotal * (purchaseOrder.taxRate / 100)
-  const total = subtotal + tax + purchaseOrder.shippingCost
-
-  return NextResponse.json({ ...purchaseOrder, subtotal, tax, total })
+  return NextResponse.json(purchaseOrder)
 }
 
 export async function PUT(
@@ -68,14 +60,11 @@ export async function PUT(
     data: {
       supplierId: body.supplierId,
       notes: body.notes || null,
-      shippingCost: parseFloat(body.shippingCost) || 0,
-      taxRate: parseFloat(body.taxRate) || 0,
       lineItems: {
-        create: body.lineItems.map((item: { productId: string; colorId?: string | null; quantity: number; unitPrice: number; engravings?: { engravingArtId: string; quantity: number }[] }) => ({
+        create: body.lineItems.map((item: { productId: string; colorId?: string | null; quantity: number; engravings?: { engravingArtId: string; quantity: number }[] }) => ({
           productId: item.productId,
           colorId: item.colorId || null,
           quantity: item.quantity,
-          unitPrice: item.unitPrice,
           engravings: item.engravings?.length ? {
             create: item.engravings.map((eng) => ({
               engravingArtId: eng.engravingArtId,

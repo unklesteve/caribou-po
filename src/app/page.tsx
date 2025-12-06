@@ -1,7 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
-import { ImportArchiveButton } from '@/components/ImportArchiveButton'
-import { SeedPantoneButton } from '@/components/SeedPantoneButton'
+import { ImportPOButton } from '@/components/ImportPOButton'
 
 async function getStats() {
   const [
@@ -31,16 +30,6 @@ async function getStats() {
     }),
   ])
 
-  const recentPOsWithTotals = recentPOs.map((po) => {
-    const subtotal = po.lineItems.reduce(
-      (sum, item) => sum + item.quantity * item.unitPrice,
-      0
-    )
-    const tax = subtotal * (po.taxRate / 100)
-    const total = subtotal + tax + po.shippingCost
-    return { ...po, total }
-  })
-
   return {
     totalPOs,
     draftPOs,
@@ -49,15 +38,8 @@ async function getStats() {
     receivedPOs,
     totalSuppliers,
     totalProducts,
-    recentPOs: recentPOsWithTotals,
+    recentPOs,
   }
-}
-
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(amount)
 }
 
 function formatDate(date: Date) {
@@ -114,8 +96,7 @@ export default async function DashboardPage() {
           >
             Add Product
           </Link>
-          <ImportArchiveButton />
-          <SeedPantoneButton />
+          <ImportPOButton />
         </div>
       </div>
 
@@ -224,13 +205,8 @@ export default async function DashboardPage() {
                   >
                     {statusLabels[po.status] || po.status}
                   </span>
-                  <div className="text-right">
-                    <div className="font-medium text-gray-900">
-                      {formatCurrency(po.total)}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {formatDate(po.createdAt)}
-                    </div>
+                  <div className="text-sm text-gray-500">
+                    {formatDate(po.createdAt)}
                   </div>
                 </div>
               </Link>

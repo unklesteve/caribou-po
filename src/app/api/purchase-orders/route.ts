@@ -1,13 +1,33 @@
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 
+// Generate PO number for manually created POs (YEAR-MM-XXX format)
 async function generatePONumber(): Promise<string> {
-  const counter = await prisma.pOCounter.upsert({
-    where: { id: 'singleton' },
-    update: { counter: { increment: 1 } },
-    create: { id: 'singleton', counter: 1 },
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = (now.getMonth() + 1).toString().padStart(2, '0')
+  const prefix = `PO-${year}-${month}-`
+
+  // Find the highest number for this month
+  const existingPOs = await prisma.purchaseOrder.findMany({
+    where: {
+      poNumber: { startsWith: prefix },
+    },
+    select: { poNumber: true },
+    orderBy: { poNumber: 'desc' },
+    take: 1,
   })
-  return `PO-${counter.counter.toString().padStart(4, '0')}`
+
+  let counter = 1
+  if (existingPOs.length > 0) {
+    const lastNum = existingPOs[0].poNumber.replace(prefix, '')
+    const parsed = parseInt(lastNum, 10)
+    if (!isNaN(parsed)) {
+      counter = parsed + 1
+    }
+  }
+
+  return `${prefix}${counter.toString().padStart(3, '0')}`
 }
 
 export async function GET(request: NextRequest) {
@@ -62,18 +82,7 @@ export async function GET(request: NextRequest) {
     orderBy: { createdAt: 'desc' },
   })
 
-  // Calculate totals for each PO
-  const posWithTotals = purchaseOrders.map((po) => {
-    const subtotal = po.lineItems.reduce(
-      (sum, item) => sum + item.quantity * item.unitPrice,
-      0
-    )
-    const tax = subtotal * (po.taxRate / 100)
-    const total = subtotal + tax + po.shippingCost
-    return { ...po, subtotal, tax, total }
-  })
-
-  return NextResponse.json(posWithTotals)
+  return NextResponse.json(purchaseOrders)
 }
 
 export async function POST(request: NextRequest) {
@@ -86,14 +95,11 @@ export async function POST(request: NextRequest) {
       supplierId: body.supplierId,
       status: 'DRAFT',
       notes: body.notes || null,
-      shippingCost: parseFloat(body.shippingCost) || 0,
-      taxRate: parseFloat(body.taxRate) || 0,
       lineItems: {
-        create: body.lineItems.map((item: { productId: string; colorId?: string | null; quantity: number; unitPrice: number; engravings?: { engravingArtId: string; quantity: number }[] }) => ({
+        create: body.lineItems.map((item: { productId: string; colorId?: string | null; quantity: number; engravings?: { engravingArtId: string; quantity: number }[] }) => ({
           productId: item.productId,
           colorId: item.colorId || null,
           quantity: item.quantity,
-          unitPrice: item.unitPrice,
           engravings: item.engravings?.length ? {
             create: item.engravings.map((eng) => ({
               engravingArtId: eng.engravingArtId,

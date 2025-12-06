@@ -48,7 +48,6 @@ interface LineItem {
   productId: string
   colorId: string | null
   quantity: number
-  unitPrice: number
   product?: Product
   color?: YoyoColor | null
   engravings: LineItemEngraving[]
@@ -59,8 +58,6 @@ interface PurchaseOrderFormProps {
     id: string
     supplierId: string
     notes: string
-    shippingCost: number
-    taxRate: number
     lineItems: LineItem[]
   }
 }
@@ -74,12 +71,6 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
 
   const [supplierId, setSupplierId] = useState(initialData?.supplierId || '')
   const [notes, setNotes] = useState(initialData?.notes || '')
-  const [shippingCost, setShippingCost] = useState(
-    initialData?.shippingCost?.toString() || '0'
-  )
-  const [taxRate, setTaxRate] = useState(
-    initialData?.taxRate?.toString() || '0'
-  )
   const [lineItems, setLineItems] = useState<LineItem[]>(
     initialData?.lineItems.map(item => ({
       ...item,
@@ -113,7 +104,6 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
         productId: product.id,
         colorId: null,
         quantity: 1,
-        unitPrice: product.unitPrice,
         product,
         color: null,
         engravings: [],
@@ -129,7 +119,6 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
         updated[index] = {
           ...updated[index],
           productId: value as string,
-          unitPrice: product.unitPrice,
           product,
           engravings: [], // Reset engravings when product changes
         }
@@ -143,8 +132,6 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
       }
     } else if (field === 'quantity') {
       updated[index] = { ...updated[index], quantity: parseInt(value as string) || 1 }
-    } else if (field === 'unitPrice') {
-      updated[index] = { ...updated[index], unitPrice: parseFloat(value as string) || 0 }
     }
     setLineItems(updated)
   }
@@ -172,28 +159,6 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
     setLineItems(lineItems.filter((_, i) => i !== index))
   }
 
-  function calculateSubtotal() {
-    return lineItems.reduce(
-      (sum, item) => sum + item.quantity * item.unitPrice,
-      0
-    )
-  }
-
-  function calculateTax() {
-    return calculateSubtotal() * (parseFloat(taxRate) / 100)
-  }
-
-  function calculateTotal() {
-    return calculateSubtotal() + calculateTax() + (parseFloat(shippingCost) || 0)
-  }
-
-  function formatCurrency(amount: number) {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount)
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!supplierId) {
@@ -210,13 +175,10 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
     const data = {
       supplierId,
       notes,
-      shippingCost,
-      taxRate,
       lineItems: lineItems.map((item) => ({
         productId: item.productId,
         colorId: item.colorId,
         quantity: item.quantity,
-        unitPrice: item.unitPrice,
         engravings: item.engravings.filter(e => e.quantity > 0),
       })),
     }
@@ -352,7 +314,7 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
                   </div>
 
                   {/* Quantity */}
-                  <div className="md:col-span-1">
+                  <div className="md:col-span-3">
                     <label className="block text-xs font-medium text-gray-500 mb-1">
                       Qty
                     </label>
@@ -367,38 +329,8 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
                     />
                   </div>
 
-                  {/* Unit Price */}
-                  <div className="md:col-span-2">
-                    <label className="block text-xs font-medium text-gray-500 mb-1">
-                      Unit Price
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-2 top-2 text-gray-500 text-sm">
-                        $
-                      </span>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={item.unitPrice}
-                        onChange={(e) =>
-                          updateLineItem(index, 'unitPrice', e.target.value)
-                        }
-                        className="w-full pl-6 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600 text-sm"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Total & Remove */}
-                  <div className="md:col-span-2 flex items-end justify-between">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">
-                        Total
-                      </label>
-                      <div className="font-medium text-gray-900 py-2">
-                        {formatCurrency(item.quantity * item.unitPrice)}
-                      </div>
-                    </div>
+                  {/* Remove */}
+                  <div className="md:col-span-2 flex items-end justify-end">
                     <button
                       type="button"
                       onClick={() => removeLineItem(index)}
@@ -465,63 +397,6 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
             ))}
           </div>
         )}
-      </div>
-
-      <div className="bg-white shadow rounded-lg p-6">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Order Summary</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Tax Rate (%)
-            </label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={taxRate}
-              onChange={(e) => setTaxRate(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Shipping Cost
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-2 text-gray-500">$</span>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={shippingCost}
-                onChange={(e) => setShippingCost(e.target.value)}
-                className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600"
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Subtotal:</span>
-              <span className="font-medium">{formatCurrency(calculateSubtotal())}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Tax:</span>
-              <span className="font-medium">{formatCurrency(calculateTax())}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Shipping:</span>
-              <span className="font-medium">
-                {formatCurrency(parseFloat(shippingCost) || 0)}
-              </span>
-            </div>
-            <div className="flex justify-between text-lg border-t pt-2">
-              <span className="font-medium">Total:</span>
-              <span className="font-bold text-maroon-800">
-                {formatCurrency(calculateTotal())}
-              </span>
-            </div>
-          </div>
-        </div>
       </div>
 
       <div className="flex justify-end space-x-3">

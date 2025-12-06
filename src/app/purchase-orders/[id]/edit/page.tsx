@@ -43,13 +43,10 @@ export default async function EditPurchaseOrderPage({
     id: po.id,
     supplierId: po.supplierId,
     notes: po.notes || '',
-    shippingCost: po.shippingCost,
-    taxRate: po.taxRate,
     lineItems: po.lineItems.map((item) => ({
       productId: item.productId,
       colorId: item.colorId,
       quantity: item.quantity,
-      unitPrice: item.unitPrice,
       product: item.product,
       color: item.color,
       engravings: item.engravings.map((e) => ({

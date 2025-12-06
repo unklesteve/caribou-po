@@ -9,7 +9,6 @@ interface PurchaseOrder {
   status: string
   createdAt: string
   supplier: { name: string }
-  total: number
 }
 
 const statusColors: Record<string, string> = {
@@ -51,13 +50,6 @@ export default function PurchaseOrdersPage() {
     if (!confirm('Are you sure you want to delete this purchase order?')) return
     await fetch(`/api/purchase-orders/${id}`, { method: 'DELETE' })
     fetchOrders()
-  }
-
-  function formatCurrency(amount: number) {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount)
   }
 
   function formatDate(dateString: string) {
@@ -131,9 +123,6 @@ export default function PurchaseOrdersPage() {
                   Status
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Total
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -163,9 +152,6 @@ export default function PurchaseOrdersPage() {
                     >
                       {statusLabels[order.status] || order.status}
                     </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-gray-900 font-medium">
-                    {formatCurrency(order.total)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <Link
