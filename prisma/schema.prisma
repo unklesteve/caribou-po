@@ -64,6 +64,7 @@ model LineItem {
   id              String   @id @default(cuid())
   purchaseOrderId String
   productId       String
+  colorId         String?
   quantity        Int
   unitPrice       Float
   createdAt       DateTime @default(now())
@@ -71,9 +72,46 @@ model LineItem {
 
   purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
   product       Product       @relation(fields: [productId], references: [id])
+  color         YoyoColor?    @relation(fields: [colorId], references: [id])
 }
 
 model POCounter {
   id      String @id @default("singleton")
   counter Int    @default(0)
+}
+
+model YoyoColor {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  imageUrl    String?
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  pantoneChips ColorPantone[]
+  lineItems    LineItem[]
+}
+
+model PantoneChip {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  hexColor  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  colors ColorPantone[]
+}
+
+model ColorPantone {
+  id           String      @id @default(cuid())
+  colorId      String
+  pantoneId    String
+  orderIndex   Int         @default(0)
+
+  color   YoyoColor   @relation(fields: [colorId], references: [id], onDelete: Cascade)
+  pantone PantoneChip @relation(fields: [pantoneId], references: [id], onDelete: Cascade)
+
+  @@unique([colorId, pantoneId])
 }

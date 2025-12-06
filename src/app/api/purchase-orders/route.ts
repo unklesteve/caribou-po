@@ -34,7 +34,17 @@ export async function GET(request: NextRequest) {
     include: {
       supplier: true,
       lineItems: {
-        include: { product: true },
+        include: {
+          product: true,
+          color: {
+            include: {
+              pantoneChips: {
+                include: { pantone: true },
+                orderBy: { orderIndex: 'asc' },
+              },
+            },
+          },
+        },
       },
     },
     orderBy: { createdAt: 'desc' },
@@ -67,8 +77,9 @@ export async function POST(request: NextRequest) {
       shippingCost: parseFloat(body.shippingCost) || 0,
       taxRate: parseFloat(body.taxRate) || 0,
       lineItems: {
-        create: body.lineItems.map((item: { productId: string; quantity: number; unitPrice: number }) => ({
+        create: body.lineItems.map((item: { productId: string; colorId?: string | null; quantity: number; unitPrice: number }) => ({
           productId: item.productId,
+          colorId: item.colorId || null,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
         })),
@@ -76,7 +87,19 @@ export async function POST(request: NextRequest) {
     },
     include: {
       supplier: true,
-      lineItems: { include: { product: true } },
+      lineItems: {
+        include: {
+          product: true,
+          color: {
+            include: {
+              pantoneChips: {
+                include: { pantone: true },
+                orderBy: { orderIndex: 'asc' },
+              },
+            },
+          },
+        },
+      },
     },
   })
 

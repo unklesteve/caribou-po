@@ -14,8 +14,16 @@ interface PurchaseOrder {
 
 const statusColors: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-800',
-  SENT: 'bg-blue-100 text-blue-800',
+  ORDERED: 'bg-blue-100 text-blue-800',
+  IN_PRODUCTION: 'bg-yellow-100 text-yellow-800',
   RECEIVED: 'bg-green-100 text-green-800',
+}
+
+const statusLabels: Record<string, string> = {
+  DRAFT: 'Draft',
+  ORDERED: 'Ordered',
+  IN_PRODUCTION: 'In Production',
+  RECEIVED: 'Received',
 }
 
 export default function PurchaseOrdersPage() {
@@ -87,7 +95,8 @@ export default function PurchaseOrdersPage() {
         >
           <option value="">All Statuses</option>
           <option value="DRAFT">Draft</option>
-          <option value="SENT">Sent</option>
+          <option value="ORDERED">Ordered</option>
+          <option value="IN_PRODUCTION">In Production</option>
           <option value="RECEIVED">Received</option>
         </select>
       </div>
@@ -152,7 +161,7 @@ export default function PurchaseOrdersPage() {
                         statusColors[order.status] || 'bg-gray-100 text-gray-800'
                       }`}
                     >
-                      {order.status}
+                      {statusLabels[order.status] || order.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-gray-900 font-medium">

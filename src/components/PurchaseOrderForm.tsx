@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 
 interface Supplier {
   id: string
@@ -16,11 +17,19 @@ interface Product {
   unit: string
 }
 
+interface YoyoColor {
+  id: string
+  name: string
+  imageUrl: string | null
+}
+
 interface LineItem {
   productId: string
+  colorId: string | null
   quantity: number
   unitPrice: number
   product?: Product
+  color?: YoyoColor | null
 }
 
 interface PurchaseOrderFormProps {
@@ -38,6 +47,7 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
   const router = useRouter()
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [products, setProducts] = useState<Product[]>([])
+  const [colors, setColors] = useState<YoyoColor[]>([])
   const [saving, setSaving] = useState(false)
 
   const [supplierId, setSupplierId] = useState(initialData?.supplierId || '')
@@ -59,12 +69,14 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
   }, [])
 
   async function fetchData() {
-    const [suppliersRes, productsRes] = await Promise.all([
+    const [suppliersRes, productsRes, colorsRes] = await Promise.all([
       fetch('/api/suppliers'),
       fetch('/api/products?activeOnly=true'),
+      fetch('/api/colors?activeOnly=true'),
     ])
     setSuppliers(await suppliersRes.json())
     setProducts(await productsRes.json())
+    setColors(await colorsRes.json())
   }
 
   function addLineItem() {
@@ -74,14 +86,16 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
       ...lineItems,
       {
         productId: product.id,
+        colorId: null,
         quantity: 1,
         unitPrice: product.unitPrice,
         product,
+        color: null,
       },
     ])
   }
 
-  function updateLineItem(index: number, field: string, value: string | number) {
+  function updateLineItem(index: number, field: string, value: string | number | null) {
     const updated = [...lineItems]
     if (field === 'productId') {
       const product = products.find((p) => p.id === value)
@@ -92,6 +106,13 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
           unitPrice: product.unitPrice,
           product,
         }
+      }
+    } else if (field === 'colorId') {
+      const color = value ? colors.find((c) => c.id === value) : null
+      updated[index] = {
+        ...updated[index],
+        colorId: value as string | null,
+        color,
       }
     } else if (field === 'quantity') {
       updated[index] = { ...updated[index], quantity: parseInt(value as string) || 1 }
@@ -147,6 +168,7 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
       taxRate,
       lineItems: lineItems.map((item) => ({
         productId: item.productId,
+        colorId: item.colorId,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
       })),
@@ -224,87 +246,123 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
             No items added yet. Click &quot;Add Item&quot; to begin.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Product
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-28">
-                    Quantity
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-32">
-                    Unit Price
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase w-28">
-                    Total
-                  </th>
-                  <th className="px-4 py-3 w-16"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {lineItems.map((item, index) => (
-                  <tr key={index}>
-                    <td className="px-4 py-3">
+          <div className="space-y-4">
+            {lineItems.map((item, index) => (
+              <div key={index} className="border border-gray-200 rounded-lg p-4">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+                  {/* Product Selection */}
+                  <div className="md:col-span-4">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Product
+                    </label>
+                    <select
+                      value={item.productId}
+                      onChange={(e) =>
+                        updateLineItem(index, 'productId', e.target.value)
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600 text-sm"
+                    >
+                      {products.map((product) => (
+                        <option key={product.id} value={product.id}>
+                          {product.sku} - {product.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Color Selection */}
+                  <div className="md:col-span-3">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Color
+                    </label>
+                    <div className="flex gap-2 items-center">
+                      {item.color?.imageUrl && (
+                        <div className="relative w-10 h-10 rounded-md overflow-hidden flex-shrink-0 border border-gray-200">
+                          <Image
+                            src={item.color.imageUrl}
+                            alt={item.color.name}
+                            fill
+                            className="object-cover"
+                            unoptimized
+                          />
+                        </div>
+                      )}
                       <select
-                        value={item.productId}
+                        value={item.colorId || ''}
                         onChange={(e) =>
-                          updateLineItem(index, 'productId', e.target.value)
+                          updateLineItem(index, 'colorId', e.target.value || null)
                         }
-                        className="w-full px-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600 text-sm"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600 text-sm"
                       >
-                        {products.map((product) => (
-                          <option key={product.id} value={product.id}>
-                            {product.sku} - {product.name}
+                        <option value="">No color</option>
+                        {colors.map((color) => (
+                          <option key={color.id} value={color.id}>
+                            {color.name}
                           </option>
                         ))}
                       </select>
-                    </td>
-                    <td className="px-4 py-3">
+                    </div>
+                  </div>
+
+                  {/* Quantity */}
+                  <div className="md:col-span-1">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Qty
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={item.quantity}
+                      onChange={(e) =>
+                        updateLineItem(index, 'quantity', e.target.value)
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600 text-sm"
+                    />
+                  </div>
+
+                  {/* Unit Price */}
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Unit Price
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-2 top-2 text-gray-500 text-sm">
+                        $
+                      </span>
                       <input
                         type="number"
-                        min="1"
-                        value={item.quantity}
+                        min="0"
+                        step="0.01"
+                        value={item.unitPrice}
                         onChange={(e) =>
-                          updateLineItem(index, 'quantity', e.target.value)
+                          updateLineItem(index, 'unitPrice', e.target.value)
                         }
-                        className="w-full px-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600 text-sm"
+                        className="w-full pl-6 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600 text-sm"
                       />
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="relative">
-                        <span className="absolute left-2 top-1.5 text-gray-500 text-sm">
-                          $
-                        </span>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={item.unitPrice}
-                          onChange={(e) =>
-                            updateLineItem(index, 'unitPrice', e.target.value)
-                          }
-                          className="w-full pl-6 pr-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600 text-sm"
-                        />
+                    </div>
+                  </div>
+
+                  {/* Total & Remove */}
+                  <div className="md:col-span-2 flex items-end justify-between">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">
+                        Total
+                      </label>
+                      <div className="font-medium text-gray-900 py-2">
+                        {formatCurrency(item.quantity * item.unitPrice)}
                       </div>
-                    </td>
-                    <td className="px-4 py-3 text-right font-medium text-gray-900">
-                      {formatCurrency(item.quantity * item.unitPrice)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => removeLineItem(index)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        Remove
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeLineItem(index)}
+                      className="text-red-600 hover:text-red-900 text-sm mb-2"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

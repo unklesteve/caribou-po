@@ -1,11 +1,13 @@
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
+import { ImportArchiveButton } from '@/components/ImportArchiveButton'
 
 async function getStats() {
   const [
     totalPOs,
     draftPOs,
-    sentPOs,
+    orderedPOs,
+    inProductionPOs,
     receivedPOs,
     totalSuppliers,
     totalProducts,
@@ -13,7 +15,8 @@ async function getStats() {
   ] = await Promise.all([
     prisma.purchaseOrder.count(),
     prisma.purchaseOrder.count({ where: { status: 'DRAFT' } }),
-    prisma.purchaseOrder.count({ where: { status: 'SENT' } }),
+    prisma.purchaseOrder.count({ where: { status: 'ORDERED' } }),
+    prisma.purchaseOrder.count({ where: { status: 'IN_PRODUCTION' } }),
     prisma.purchaseOrder.count({ where: { status: 'RECEIVED' } }),
     prisma.supplier.count(),
     prisma.product.count(),
@@ -40,7 +43,8 @@ async function getStats() {
   return {
     totalPOs,
     draftPOs,
-    sentPOs,
+    orderedPOs,
+    inProductionPOs,
     receivedPOs,
     totalSuppliers,
     totalProducts,
@@ -64,8 +68,16 @@ function formatDate(date: Date) {
 
 const statusColors: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-800',
-  SENT: 'bg-blue-100 text-blue-800',
+  ORDERED: 'bg-blue-100 text-blue-800',
+  IN_PRODUCTION: 'bg-yellow-100 text-yellow-800',
   RECEIVED: 'bg-green-100 text-green-800',
+}
+
+const statusLabels: Record<string, string> = {
+  DRAFT: 'Draft',
+  ORDERED: 'Ordered',
+  IN_PRODUCTION: 'In Production',
+  RECEIVED: 'Received',
 }
 
 export default async function DashboardPage() {
@@ -101,6 +113,7 @@ export default async function DashboardPage() {
           >
             Add Product
           </Link>
+          <ImportArchiveButton />
         </div>
       </div>
 
@@ -120,14 +133,24 @@ export default async function DashboardPage() {
         </div>
 
         <div className="bg-white rounded-lg shadow p-6">
-          <div className="text-sm font-medium text-gray-500">Draft</div>
-          <div className="text-3xl font-bold text-gray-900 mt-1">
-            {stats.draftPOs}
-          </div>
-          <div className="flex gap-2 mt-2 text-sm text-gray-500">
-            <span className="text-blue-600">{stats.sentPOs} sent</span>
-            <span>|</span>
-            <span className="text-green-600">{stats.receivedPOs} received</span>
+          <div className="text-sm font-medium text-gray-500">By Status</div>
+          <div className="mt-2 space-y-1 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Draft:</span>
+              <span className="font-medium">{stats.draftPOs}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-blue-600">Ordered:</span>
+              <span className="font-medium">{stats.orderedPOs}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-yellow-600">In Production:</span>
+              <span className="font-medium">{stats.inProductionPOs}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-green-600">Received:</span>
+              <span className="font-medium">{stats.receivedPOs}</span>
+            </div>
           </div>
         </div>
 
@@ -197,7 +220,7 @@ export default async function DashboardPage() {
                       statusColors[po.status]
                     }`}
                   >
-                    {po.status}
+                    {statusLabels[po.status] || po.status}
                   </span>
                   <div className="text-right">
                     <div className="font-medium text-gray-900">

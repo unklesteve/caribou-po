@@ -13,7 +13,12 @@ export default async function EditPurchaseOrderPage({
   const po = await prisma.purchaseOrder.findUnique({
     where: { id: params.id },
     include: {
-      lineItems: { include: { product: true } },
+      lineItems: {
+        include: {
+          product: true,
+          color: true,
+        },
+      },
     },
   })
 
@@ -34,9 +39,11 @@ export default async function EditPurchaseOrderPage({
     taxRate: po.taxRate,
     lineItems: po.lineItems.map((item) => ({
       productId: item.productId,
+      colorId: item.colorId,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       product: item.product,
+      color: item.color,
     })),
   }
 

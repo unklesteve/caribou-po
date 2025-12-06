@@ -9,7 +9,19 @@ export async function GET(
     where: { id: params.id },
     include: {
       supplier: true,
-      lineItems: { include: { product: true } },
+      lineItems: {
+        include: {
+          product: true,
+          color: {
+            include: {
+              pantoneChips: {
+                include: { pantone: true },
+                orderBy: { orderIndex: 'asc' },
+              },
+            },
+          },
+        },
+      },
     },
   })
 
@@ -47,8 +59,9 @@ export async function PUT(
       shippingCost: parseFloat(body.shippingCost) || 0,
       taxRate: parseFloat(body.taxRate) || 0,
       lineItems: {
-        create: body.lineItems.map((item: { productId: string; quantity: number; unitPrice: number }) => ({
+        create: body.lineItems.map((item: { productId: string; colorId?: string | null; quantity: number; unitPrice: number }) => ({
           productId: item.productId,
+          colorId: item.colorId || null,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
         })),
@@ -56,7 +69,19 @@ export async function PUT(
     },
     include: {
       supplier: true,
-      lineItems: { include: { product: true } },
+      lineItems: {
+        include: {
+          product: true,
+          color: {
+            include: {
+              pantoneChips: {
+                include: { pantone: true },
+                orderBy: { orderIndex: 'asc' },
+              },
+            },
+          },
+        },
+      },
     },
   })
 
@@ -73,7 +98,7 @@ export async function PATCH(
 
   if (body.status) {
     updateData.status = body.status
-    if (body.status === 'SENT') {
+    if (body.status === 'ORDERED') {
       updateData.sentAt = new Date()
     } else if (body.status === 'RECEIVED') {
       updateData.receivedAt = new Date()
@@ -85,7 +110,19 @@ export async function PATCH(
     data: updateData,
     include: {
       supplier: true,
-      lineItems: { include: { product: true } },
+      lineItems: {
+        include: {
+          product: true,
+          color: {
+            include: {
+              pantoneChips: {
+                include: { pantone: true },
+                orderBy: { orderIndex: 'asc' },
+              },
+            },
+          },
+        },
+      },
     },
   })
 

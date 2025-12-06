@@ -8,6 +8,8 @@ const navItems = [
   { href: '/purchase-orders', label: 'Purchase Orders' },
   { href: '/suppliers', label: 'Suppliers' },
   { href: '/products', label: 'Products' },
+  { href: '/colors', label: 'Colors' },
+  { href: '/pantone', label: 'Pantone' },
 ]
 
 export function Navigation() {

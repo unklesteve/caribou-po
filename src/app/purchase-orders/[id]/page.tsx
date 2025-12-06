@@ -1,8 +1,23 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+
+interface PantoneChip {
+  pantone: {
+    code: string
+    name: string
+    hexColor: string
+  }
+}
+
+interface YoyoColor {
+  name: string
+  imageUrl: string | null
+  pantoneChips: PantoneChip[]
+}
 
 interface LineItem {
   id: string
@@ -13,6 +28,7 @@ interface LineItem {
     name: string
     unit: string
   }
+  color: YoyoColor | null
 }
 
 interface PurchaseOrder {
@@ -42,9 +58,19 @@ interface PurchaseOrder {
 
 const statusColors: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-800',
-  SENT: 'bg-blue-100 text-blue-800',
+  ORDERED: 'bg-blue-100 text-blue-800',
+  IN_PRODUCTION: 'bg-yellow-100 text-yellow-800',
   RECEIVED: 'bg-green-100 text-green-800',
 }
+
+const statusLabels: Record<string, string> = {
+  DRAFT: 'Draft',
+  ORDERED: 'Ordered',
+  IN_PRODUCTION: 'In Production',
+  RECEIVED: 'Received',
+}
+
+const statusOptions = ['ORDERED', 'IN_PRODUCTION', 'RECEIVED']
 
 export default function PurchaseOrderDetailPage({
   params,
@@ -127,37 +153,35 @@ export default function PurchaseOrderDetailPage({
                 statusColors[po.status] || 'bg-gray-100 text-gray-800'
               }`}
             >
-              {po.status}
+              {statusLabels[po.status] || po.status}
             </span>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
           {po.status === 'DRAFT' && (
-            <>
-              <Link
-                href={`/purchase-orders/${po.id}/edit`}
-                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                Edit
-              </Link>
-              <button
-                onClick={() => updateStatus('SENT')}
-                disabled={updating}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors disabled:opacity-50"
-              >
-                Mark as Sent
-              </button>
-            </>
-          )}
-          {po.status === 'SENT' && (
-            <button
-              onClick={() => updateStatus('RECEIVED')}
-              disabled={updating}
-              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium transition-colors disabled:opacity-50"
+            <Link
+              href={`/purchase-orders/${po.id}/edit`}
+              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
             >
-              Mark as Received
-            </button>
+              Edit
+            </Link>
           )}
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-600">Status:</label>
+            <select
+              value={po.status}
+              onChange={(e) => updateStatus(e.target.value)}
+              disabled={updating}
+              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600 disabled:opacity-50"
+            >
+              <option value="DRAFT">Draft</option>
+              {statusOptions.map((status) => (
+                <option key={status} value={status}>
+                  {statusLabels[status]}
+                </option>
+              ))}
+            </select>
+          </div>
           <Link
             href={`/api/purchase-orders/${po.id}/pdf`}
             target="_blank"
@@ -177,6 +201,9 @@ export default function PurchaseOrderDetailPage({
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Product
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Color
                   </th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                     Qty
@@ -200,6 +227,49 @@ export default function PurchaseOrderDetailPage({
                         {item.product.sku}
                       </div>
                     </td>
+                    <td className="px-4 py-3">
+                      {item.color ? (
+                        <div className="flex items-start gap-2">
+                          {item.color.imageUrl && (
+                            <div className="relative w-10 h-10 rounded overflow-hidden flex-shrink-0 border border-gray-200">
+                              <Image
+                                src={item.color.imageUrl}
+                                alt={item.color.name}
+                                fill
+                                className="object-cover"
+                                unoptimized
+                              />
+                            </div>
+                          )}
+                          <div>
+                            <div className="font-medium text-gray-900 text-sm">
+                              {item.color.name}
+                            </div>
+                            {item.color.pantoneChips.length > 0 && (
+                              <div className="flex gap-1 mt-1 flex-wrap">
+                                {item.color.pantoneChips.map((cp, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="flex items-center gap-1"
+                                    title={`${cp.pantone.code} - ${cp.pantone.name}`}
+                                  >
+                                    <div
+                                      className="w-4 h-4 rounded border border-gray-300"
+                                      style={{ backgroundColor: cp.pantone.hexColor }}
+                                    />
+                                    <span className="text-xs text-gray-500">
+                                      {cp.pantone.code}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-right text-gray-900">
                       {item.quantity} {item.product.unit}
                     </td>
@@ -214,7 +284,7 @@ export default function PurchaseOrderDetailPage({
               </tbody>
               <tfoot className="bg-gray-50">
                 <tr>
-                  <td colSpan={3} className="px-4 py-3 text-right text-gray-600">
+                  <td colSpan={4} className="px-4 py-3 text-right text-gray-600">
                     Subtotal:
                   </td>
                   <td className="px-4 py-3 text-right font-medium text-gray-900">
@@ -222,7 +292,7 @@ export default function PurchaseOrderDetailPage({
                   </td>
                 </tr>
                 <tr>
-                  <td colSpan={3} className="px-4 py-3 text-right text-gray-600">
+                  <td colSpan={4} className="px-4 py-3 text-right text-gray-600">
                     Tax ({po.taxRate}%):
                   </td>
                   <td className="px-4 py-3 text-right font-medium text-gray-900">
@@ -230,7 +300,7 @@ export default function PurchaseOrderDetailPage({
                   </td>
                 </tr>
                 <tr>
-                  <td colSpan={3} className="px-4 py-3 text-right text-gray-600">
+                  <td colSpan={4} className="px-4 py-3 text-right text-gray-600">
                     Shipping:
                   </td>
                   <td className="px-4 py-3 text-right font-medium text-gray-900">
@@ -238,7 +308,7 @@ export default function PurchaseOrderDetailPage({
                   </td>
                 </tr>
                 <tr className="border-t-2">
-                  <td colSpan={3} className="px-4 py-3 text-right text-lg font-medium">
+                  <td colSpan={4} className="px-4 py-3 text-right text-lg font-medium">
                     Total:
                   </td>
                   <td className="px-4 py-3 text-right text-lg font-bold text-maroon-800">
@@ -286,7 +356,7 @@ export default function PurchaseOrderDetailPage({
                 <span className="text-gray-900">{formatDate(po.createdAt)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Sent:</span>
+                <span className="text-gray-600">Ordered:</span>
                 <span className="text-gray-900">{formatDate(po.sentAt)}</span>
               </div>
               <div className="flex justify-between">

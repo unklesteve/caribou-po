@@ -25,7 +25,19 @@ export async function GET(
     where: { id: params.id },
     include: {
       supplier: true,
-      lineItems: { include: { product: true } },
+      lineItems: {
+        include: {
+          product: true,
+          color: {
+            include: {
+              pantoneChips: {
+                include: { pantone: true },
+                orderBy: { orderIndex: 'asc' },
+              },
+            },
+          },
+        },
+      },
     },
   })
 
@@ -99,7 +111,7 @@ export async function GET(
   y += 15
 
   // Line items table
-  const colWidths = [80, 25, 35, 35]
+  const colWidths = [55, 50, 20, 28, 28]
   const startX = 20
   let tableY = y
 
@@ -108,10 +120,17 @@ export async function GET(
   doc.rect(startX, tableY, pageWidth - 40, 8, 'F')
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(255, 255, 255)
-  doc.text('Product', startX + 2, tableY + 6)
-  doc.text('Qty', startX + colWidths[0] + 2, tableY + 6)
-  doc.text('Unit Price', startX + colWidths[0] + colWidths[1] + 2, tableY + 6)
-  doc.text('Total', startX + colWidths[0] + colWidths[1] + colWidths[2] + 2, tableY + 6)
+  doc.setFontSize(9)
+  let colX = startX + 2
+  doc.text('Product', colX, tableY + 6)
+  colX += colWidths[0]
+  doc.text('Color', colX, tableY + 6)
+  colX += colWidths[1]
+  doc.text('Qty', colX, tableY + 6)
+  colX += colWidths[2]
+  doc.text('Unit Price', colX, tableY + 6)
+  colX += colWidths[3]
+  doc.text('Total', colX, tableY + 6)
 
   tableY += 10
   doc.setTextColor(0, 0, 0)
@@ -120,16 +139,80 @@ export async function GET(
   // Table rows
   for (const item of po.lineItems) {
     const lineTotal = item.quantity * item.unitPrice
+    const hasColor = item.color !== null
+    const pantoneChips = item.color?.pantoneChips || []
+    const rowHeight = hasColor && pantoneChips.length > 0 ? 20 : 14
 
-    doc.text(item.product.name, startX + 2, tableY + 5)
+    // Product column
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'bold')
+    doc.text(item.product.name, startX + 2, tableY + 5, { maxWidth: colWidths[0] - 4 })
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(7)
+    doc.setTextColor(100, 100, 100)
     doc.text(item.product.sku, startX + 2, tableY + 10, { maxWidth: colWidths[0] - 4 })
+    doc.setTextColor(0, 0, 0)
+
+    // Color column
+    colX = startX + colWidths[0]
+    if (hasColor && item.color) {
+      doc.setFontSize(8)
+      doc.setFont('helvetica', 'bold')
+      doc.text(item.color.name, colX + 2, tableY + 5, { maxWidth: colWidths[1] - 4 })
+      doc.setFont('helvetica', 'normal')
+
+      // Pantone chips
+      if (pantoneChips.length > 0) {
+        doc.setFontSize(6)
+        doc.setTextColor(80, 80, 80)
+        const chipWidth = 8
+        const chipHeight = 6
+        let chipX = colX + 2
+        const chipY = tableY + 8
+
+        for (const cp of pantoneChips.slice(0, 4)) {
+          // Draw color swatch
+          const hex = cp.pantone.hexColor
+          const r = parseInt(hex.slice(1, 3), 16)
+          const g = parseInt(hex.slice(3, 5), 16)
+          const b = parseInt(hex.slice(5, 7), 16)
+          doc.setFillColor(r, g, b)
+          doc.rect(chipX, chipY, chipWidth, chipHeight, 'F')
+          doc.setDrawColor(150, 150, 150)
+          doc.rect(chipX, chipY, chipWidth, chipHeight, 'S')
+          chipX += chipWidth + 1
+        }
+
+        // List Pantone codes below swatches
+        doc.setFontSize(5)
+        const pantoneNames = pantoneChips.map(cp => cp.pantone.code).slice(0, 4).join(', ')
+        doc.text(pantoneNames, colX + 2, tableY + 17, { maxWidth: colWidths[1] - 4 })
+        doc.setTextColor(0, 0, 0)
+      }
+    } else {
+      doc.setFontSize(8)
+      doc.setTextColor(150, 150, 150)
+      doc.text('-', colX + 2, tableY + 6)
+      doc.setTextColor(0, 0, 0)
+    }
+
+    // Quantity column
+    colX += colWidths[1]
     doc.setFontSize(8)
-    doc.text(`${item.quantity} ${item.product.unit}`, startX + colWidths[0] + 2, tableY + 6)
-    doc.text(formatCurrency(item.unitPrice), startX + colWidths[0] + colWidths[1] + 2, tableY + 6)
-    doc.text(formatCurrency(lineTotal), startX + colWidths[0] + colWidths[1] + colWidths[2] + 2, tableY + 6)
+    doc.text(`${item.quantity} ${item.product.unit}`, colX + 2, tableY + 6)
+
+    // Unit price column
+    colX += colWidths[2]
+    doc.text(formatCurrency(item.unitPrice), colX + 2, tableY + 6)
+
+    // Total column
+    colX += colWidths[3]
+    doc.setFont('helvetica', 'bold')
+    doc.text(formatCurrency(lineTotal), colX + 2, tableY + 6)
+    doc.setFont('helvetica', 'normal')
     doc.setFontSize(10)
 
-    tableY += 14
+    tableY += rowHeight
     doc.setDrawColor(200, 200, 200)
     doc.line(startX, tableY - 2, pageWidth - 20, tableY - 2)
   }
