@@ -35,8 +35,20 @@ export function ColorForm({ initialData }: ColorFormProps) {
   const [formData, setFormData] = useState(initialData || defaultData)
   const [pantones, setPantones] = useState<PantoneChip[]>([])
   const [saving, setSaving] = useState(false)
+  const [pantoneSearch, setPantoneSearch] = useState('')
 
   const isEditing = !!initialData?.id
+
+  // Filter pantones based on search
+  const filteredPantones = pantones.filter((pantone) => {
+    if (!pantoneSearch.trim()) return true
+    const search = pantoneSearch.toLowerCase()
+    return (
+      pantone.code.toLowerCase().includes(search) ||
+      pantone.name.toLowerCase().includes(search) ||
+      pantone.hexColor.toLowerCase().includes(search)
+    )
+  })
 
   useEffect(() => {
     fetchPantones()
@@ -164,7 +176,14 @@ export function ColorForm({ initialData }: ColorFormProps) {
       </div>
 
       <div className="bg-white shadow rounded-lg p-6">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Pantone Colors</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-medium text-gray-900">Pantone Colors</h2>
+          {pantones.length > 0 && (
+            <span className="text-sm text-gray-500">
+              {filteredPantones.length} of {pantones.length} colors
+            </span>
+          )}
+        </div>
         {pantones.length === 0 ? (
           <p className="text-gray-500">
             No Pantone colors defined yet.{' '}
@@ -174,8 +193,18 @@ export function ColorForm({ initialData }: ColorFormProps) {
             first.
           </p>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-            {pantones.map((pantone) => {
+          <>
+            <div className="mb-4">
+              <input
+                type="text"
+                placeholder="Search Pantone colors by code, name, or hex..."
+                value={pantoneSearch}
+                onChange={(e) => setPantoneSearch(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600"
+              />
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 max-h-96 overflow-y-auto">
+              {filteredPantones.map((pantone) => {
               const isSelected = formData.pantoneIds.includes(pantone.id)
               return (
                 <button
@@ -201,7 +230,13 @@ export function ColorForm({ initialData }: ColorFormProps) {
                 </button>
               )
             })}
-          </div>
+            </div>
+            {filteredPantones.length === 0 && pantoneSearch && (
+              <p className="text-gray-500 text-center py-4">
+                No Pantone colors match &quot;{pantoneSearch}&quot;
+              </p>
+            )}
+          </>
         )}
         {formData.pantoneIds.length > 0 && (
           <div className="mt-4 p-3 bg-gray-50 rounded-md">
