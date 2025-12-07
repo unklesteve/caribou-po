@@ -68,13 +68,14 @@ function parseCaribouCSV(csvText: string): ParsedPO {
     if (i < 5) {
       for (let j = 0; j < values.length; j++) {
         const val = values[j].trim()
-        if (val.startsWith('PO:')) {
-          // PO number might be in same cell or next cell
+        if (val === 'PO:' && values[j + 1]) {
+          // PO number is in next cell
+          result.poNumber = values[j + 1].trim()
+        } else if (val.startsWith('PO:')) {
+          // PO number might be in same cell
           const poMatch = val.match(/PO:\s*(.+)/)
           if (poMatch && poMatch[1]) {
             result.poNumber = poMatch[1].trim()
-          } else if (values[j + 1]) {
-            result.poNumber = values[j + 1].trim()
           }
         }
         if (val.startsWith('Date:')) {
@@ -90,15 +91,19 @@ function parseCaribouCSV(csvText: string): ParsedPO {
       }
     }
 
-    // Find header row (contains "Product" and "QTY")
+    // Find header row - look for "Color" and "QTY" (product name comes from first data column)
     const lowerValues = values.map(v => v.toLowerCase().trim())
     if (headerRowIndex === -1) {
-      if (lowerValues.includes('product') && (lowerValues.includes('qty') || lowerValues.includes('quantity'))) {
+      const hasColor = lowerValues.includes('color')
+      const hasQty = lowerValues.includes('qty') || lowerValues.includes('quantity')
+
+      if (hasColor && hasQty) {
         headerRowIndex = i
-        productIdx = lowerValues.indexOf('product')
         colorIdx = lowerValues.indexOf('color')
         qtyIdx = lowerValues.includes('qty') ? lowerValues.indexOf('qty') : lowerValues.indexOf('quantity')
         notesIdx = lowerValues.indexOf('notes')
+        // Product index is typically column 0 (before Color), or same as Color - 1
+        productIdx = lowerValues.includes('product') ? lowerValues.indexOf('product') : 0
         continue
       }
     }
@@ -116,7 +121,7 @@ function parseCaribouCSV(csvText: string): ParsedPO {
     const notesVal = notesIdx >= 0 ? values[notesIdx]?.trim() || '' : ''
 
     // Skip empty rows or total row
-    if (qtyVal.toLowerCase() === '' || productVal.toLowerCase() === 'total:' || colorVal.toLowerCase() === 'total:') {
+    if (colorVal.toLowerCase() === 'total:' || productVal.toLowerCase() === 'total:') {
       continue
     }
 
