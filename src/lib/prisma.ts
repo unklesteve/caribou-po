@@ -10,15 +10,8 @@ function createPrismaClient(): PrismaClient {
   const tursoUrl = process.env.TURSO_DATABASE_URL
   const tursoToken = process.env.TURSO_AUTH_TOKEN
 
-  console.log('[Prisma] Creating client...')
-  console.log('[Prisma] TURSO_DATABASE_URL:', tursoUrl ? 'SET' : 'NOT SET')
-  console.log('[Prisma] TURSO_AUTH_TOKEN:', tursoToken ? 'SET' : 'NOT SET')
-  console.log('[Prisma] NODE_ENV:', process.env.NODE_ENV)
-  console.log('[Prisma] All env keys:', Object.keys(process.env).filter(k => k.includes('TURSO') || k.includes('DATABASE')))
-
   // Use Turso if configured
   if (tursoUrl && tursoToken) {
-    console.log('[Prisma] Using Turso adapter')
     const libsql = createClient({
       url: tursoUrl,
       authToken: tursoToken,
@@ -27,9 +20,12 @@ function createPrismaClient(): PrismaClient {
     return new PrismaClient({ adapter })
   }
 
-  console.log('[Prisma] Falling back to default PrismaClient')
-  // Fallback to regular Prisma client for local development
-  return new PrismaClient()
+  // In production/Vercel, we MUST have Turso configured
+  // Throw a clear error instead of falling back to broken SQLite
+  throw new Error(
+    `Turso not configured. TURSO_DATABASE_URL: ${tursoUrl ? 'set' : 'MISSING'}, TURSO_AUTH_TOKEN: ${tursoToken ? 'set' : 'MISSING'}. ` +
+    `Available env vars with TURSO/DATABASE: ${Object.keys(process.env).filter(k => k.includes('TURSO') || k.includes('DATABASE')).join(', ') || 'none'}`
+  )
 }
 
 // Use a getter to lazily initialize the client at runtime, not build time
