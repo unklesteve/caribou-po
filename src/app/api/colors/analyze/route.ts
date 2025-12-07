@@ -147,6 +147,7 @@ function isBackgroundColor(rgb: { r: number; g: number; b: number }): boolean {
 
 // Extract colors from image using get-pixels
 async function extractDominantColors(imageUrl: string): Promise<{ color: { r: number; g: number; b: number }; weight: number }[]> {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const getPixels = require('get-pixels')
   const getPixelsAsync = promisify(getPixels)
 

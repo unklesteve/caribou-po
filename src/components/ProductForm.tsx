@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Image from 'next/image'
 
 interface EngravingArt {
@@ -131,7 +131,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
       } else {
         alert(`Upload failed: ${result.error}`)
       }
-    } catch (error) {
+    } catch {
       alert('Upload failed')
     }
     setUploading(false)
@@ -155,7 +155,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
       } else {
         alert(`Failed to fetch image: ${result.error}`)
       }
-    } catch (error) {
+    } catch {
       alert('Failed to fetch image from URL')
     }
     setFetchingUrl(false)
@@ -183,7 +183,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
       } else {
         alert(`Upload failed: ${result.error}`)
       }
-    } catch (error) {
+    } catch {
       alert('Upload failed')
     }
     setUploadingEngraving(false)
@@ -207,7 +207,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
       } else {
         alert(`Failed to fetch image: ${result.error}`)
       }
-    } catch (error) {
+    } catch {
       alert('Failed to fetch image from URL')
     }
     setFetchingEngravingUrl(false)
@@ -235,7 +235,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
       } else {
         alert('Failed to add engraving')
       }
-    } catch (error) {
+    } catch {
       alert('Failed to add engraving')
     }
     setSavingEngraving(false)
@@ -249,7 +249,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
         method: 'DELETE',
       })
       setEngravingArt(engravingArt.filter(a => a.id !== artId))
-    } catch (error) {
+    } catch {
       alert('Failed to delete engraving')
     }
   }
@@ -285,7 +285,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
       } else {
         alert('Failed to add quote')
       }
-    } catch (error) {
+    } catch {
       alert('Failed to add quote')
     }
     setSavingQuote(false)
@@ -304,7 +304,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
       if (updatedQuotes.length > 0) {
         setFormData({ ...formData, unitPrice: updatedQuotes[0].unitPrice.toString() })
       }
-    } catch (error) {
+    } catch {
       alert('Failed to delete quote')
     }
   }

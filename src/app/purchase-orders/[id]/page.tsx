@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
 function formatImageUrl(url: string | null): string | null {
@@ -91,7 +90,6 @@ export default function PurchaseOrderDetailPage({
 }: {
   params: { id: string }
 }) {
-  const router = useRouter()
   const [po, setPO] = useState<PurchaseOrder | null>(null)
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
