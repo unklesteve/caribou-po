@@ -199,17 +199,28 @@ export async function GET(
     const colorDescription = item.color?.description || ''
 
     // Calculate card height based on content
-    let cardHeight = 45  // Base height
+    // Base: product name + SKU + color name + tags + pantone = ~45
+    let leftContentHeight = 45
+
+    // Add height for description (estimate ~4pt per line, max 60 chars per line)
     if (colorDescription) {
-      // Estimate lines needed for description
-      const descLines = Math.ceil(colorDescription.length / 60)
-      cardHeight += descLines * 4
+      const descLines = Math.min(3, Math.ceil(colorDescription.length / 50))
+      leftContentHeight += descLines * 4
     }
-    // Ensure enough height for engravings
-    const engravingsNeededHeight = Math.ceil(engravings.length / 2) * 22
-    if (engravingsNeededHeight > 20) {
-      cardHeight = Math.max(cardHeight, engravingsNeededHeight + 30)
+
+    // Add height for rim color if present
+    if (hasSteelRim) {
+      leftContentHeight += 5
     }
+
+    // Calculate right side height for engravings
+    // Each engraving needs: label (5) + image height (18) + spacing (3) = 26
+    const engravingsHeight = engravings.length > 0
+      ? 14 + (engravings.length * 24)  // 14 for "Engravings:" label + qty display
+      : 14  // Just quantity display
+
+    // Card height is the max of left content, right content, or color image height
+    const cardHeight = Math.max(leftContentHeight, engravingsHeight, colorImageSize + 10)
 
     // Check if we need a new page
     if (cardY + cardHeight > pageHeight - 30) {
@@ -263,7 +274,8 @@ export async function GET(
 
     // === MIDDLE SECTION: Product & Color Info ===
     const infoX = startX + colorImageSize + 12
-    const infoWidth = 75
+    const rightSectionWidth = 60  // Reserve space for quantity & engravings
+    const infoWidth = cardWidth - colorImageSize - 16 - rightSectionWidth  // Don't overlap right section
     let infoY = cardY + 6
 
     // Product name (large, bold)
@@ -354,18 +366,18 @@ export async function GET(
     }
 
     // === RIGHT SECTION: Quantity & Engravings ===
-    const rightX = startX + cardWidth - 55
+    const rightX = startX + cardWidth - rightSectionWidth
     let rightY = cardY + 6
 
     // Quantity (large, prominent)
     doc.setFontSize(20)
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(40, 0, 3)  // Maroon
-    doc.text(`${item.quantity}`, rightX + 25, rightY + 2, { align: 'center' })
+    doc.text(`${item.quantity}`, rightX + rightSectionWidth / 2, rightY + 2, { align: 'center' })
     doc.setFontSize(9)
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(100, 100, 100)
-    doc.text(item.product.unit, rightX + 25, rightY + 8, { align: 'center' })
+    doc.text(item.product.unit, rightX + rightSectionWidth / 2, rightY + 8, { align: 'center' })
     rightY += 14
 
     // Engravings section
@@ -402,15 +414,17 @@ export async function GET(
         }
 
         // Engraving name and position
+        const engTextX = rightX + engravingImageSize + 3
+        const engTextWidth = rightSectionWidth - engravingImageSize - 6
         doc.setFontSize(7)
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(0, 0, 0)
-        doc.text(engArt.name, rightX + engravingImageSize + 2, rightY + 6, { maxWidth: 30 })
+        doc.text(engArt.name, engTextX, rightY + 6, { maxWidth: engTextWidth })
         doc.setFont('helvetica', 'normal')
         doc.setTextColor(100, 100, 100)
-        doc.text(engArt.position, rightX + engravingImageSize + 2, rightY + 11, { maxWidth: 30 })
+        doc.text(engArt.position, engTextX, rightY + 11, { maxWidth: engTextWidth })
 
-        rightY += engravingImageSize + 3
+        rightY += engravingImageSize + 4
       }
     }
 
