@@ -351,7 +351,6 @@ export function ProductForm({ initialData }: ProductFormProps) {
 
   // Filter quotes by type
   const productionQuotes = quotes.filter(q => q.quoteType === 'production')
-  const prototypeQuotes = quotes.filter(q => q.quoteType === 'prototype')
 
   // Calculate price change percentage between most recent and previous production quote
   function getProductionPriceChange() {
@@ -836,7 +835,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {quotes.map((quote, index) => {
+                  {quotes.map((quote) => {
                     // For production quotes, calculate change from previous production quote
                     // For prototype quotes, don't show change
                     let change: number | null = null

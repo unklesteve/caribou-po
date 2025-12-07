@@ -35,7 +35,7 @@ export async function PUT(
     const { quoteNumber, quoteDate, quoteType, supplierId, pdfUrl, shippingCost, notes, lineItems } = body
 
     // Update the quote
-    const quote = await prisma.quote.update({
+    await prisma.quote.update({
       where: { id: params.id },
       data: {
         quoteNumber: quoteNumber || null,
