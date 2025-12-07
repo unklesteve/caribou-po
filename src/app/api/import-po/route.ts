@@ -220,10 +220,7 @@ export async function POST(request: NextRequest) {
 
     // Parse CSV
     const csvText = await file.text()
-    console.log('CSV content (first 500 chars):', csvText.substring(0, 500))
-
     const parsed = parseCaribouCSV(csvText)
-    console.log('Parsed result:', JSON.stringify(parsed, null, 2))
 
     if (parsed.items.length === 0) {
       return NextResponse.json(
