@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
         name: body.name,
         description: body.description || null,
         imageUrl: body.imageUrl || null,
-        unitPrice: parseFloat(body.unitPrice) || 0,
+        unitPrice: body.unitPrice ? parseFloat(body.unitPrice) : 0,
         unit: body.unit || 'each',
         category: body.category || null,
         material: body.material || null,
