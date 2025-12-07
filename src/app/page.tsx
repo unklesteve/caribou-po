@@ -2,6 +2,8 @@ import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
 import { ImportPOButton } from '@/components/ImportPOButton'
 
+export const dynamic = 'force-dynamic'
+
 async function getStats() {
   const [
     totalPOs,
