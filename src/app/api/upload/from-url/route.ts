@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { mkdir, writeFile } from 'fs/promises'
-import path from 'path'
-import { existsSync } from 'fs'
+import { put } from '@vercel/blob'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -56,28 +54,22 @@ export async function POST(request: NextRequest) {
     // Generate unique filename
     const timestamp = Date.now()
     const randomStr = Math.random().toString(36).substring(2, 8)
-    const filename = `url-image-${timestamp}-${randomStr}${ext}`
+    const filename = `${folder}/url-image-${timestamp}-${randomStr}${ext}`
 
-    // Ensure upload directory exists
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', folder)
-    if (!existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true })
-    }
-
-    // Save the file
+    // Get the image data as a buffer
     const arrayBuffer = await response.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
 
-    const filepath = path.join(uploadDir, filename)
-    await writeFile(filepath, buffer)
-
-    // Return the public URL
-    const localUrl = `/uploads/${folder}/${filename}`
+    // Upload to Vercel Blob
+    const blob = await put(filename, buffer, {
+      access: 'public',
+      contentType: contentType || 'image/png',
+    })
 
     return NextResponse.json({
       success: true,
-      url: localUrl,
-      filename,
+      url: blob.url,
+      filename: blob.pathname,
       originalUrl: url,
     })
   } catch (error) {

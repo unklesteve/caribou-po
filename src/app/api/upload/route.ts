@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { mkdir, writeFile } from 'fs/promises'
-import path from 'path'
-import { existsSync } from 'fs'
+import { put } from '@vercel/blob'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -36,28 +34,17 @@ export async function POST(request: NextRequest) {
       .replace(/[^a-zA-Z0-9-_]/g, '-') // Replace special chars
       .substring(0, 50) // Limit length
 
-    const filename = `${safeName}-${timestamp}${ext}`
+    const filename = `${folder}/${safeName}-${timestamp}${ext}`
 
-    // Ensure upload directory exists
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', folder)
-    if (!existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true })
-    }
-
-    // Save the file directly
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
-
-    const filepath = path.join(uploadDir, filename)
-    await writeFile(filepath, buffer)
-
-    // Return the public URL
-    const url = `/uploads/${folder}/${filename}`
+    // Upload to Vercel Blob
+    const blob = await put(filename, file, {
+      access: 'public',
+    })
 
     return NextResponse.json({
       success: true,
-      url,
-      filename,
+      url: blob.url,
+      filename: blob.pathname,
     })
   } catch (error) {
     console.error('Upload error:', error)
