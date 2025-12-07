@@ -61,50 +61,74 @@ function parseCaribouCSV(csvText: string): ParsedPO {
   let rimColorIdx = -1
   let currentProduct = ''
 
+  // Helper to find column index by checking multiple possible names
+  function findColumnIndex(lowerValues: string[], possibleNames: string[]): number {
+    for (const name of possibleNames) {
+      const idx = lowerValues.findIndex(v => v.includes(name))
+      if (idx !== -1) return idx
+    }
+    return -1
+  }
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
     // Parse CSV properly handling quoted fields
     const values = parseCSVLine(line)
 
-    // Look for PO number in early rows (format: "PO:,2025-09-BOREALISOG")
-    if (i < 5) {
+    // Look for PO number in early rows - check various formats
+    if (i < 10) {
       for (let j = 0; j < values.length; j++) {
         const val = values[j].trim()
-        if (val === 'PO:' && values[j + 1]) {
-          // PO number is in next cell
+        const lowerVal = val.toLowerCase()
+
+        // Check for PO number patterns
+        if ((lowerVal === 'po:' || lowerVal === 'po' || lowerVal === 'po #' || lowerVal === 'po#') && values[j + 1]) {
           result.poNumber = values[j + 1].trim()
-        } else if (val.startsWith('PO:')) {
-          // PO number might be in same cell
-          const poMatch = val.match(/PO:\s*(.+)/)
+        } else if (lowerVal.startsWith('po:') || lowerVal.startsWith('po #')) {
+          const poMatch = val.match(/po[:#]?\s*(.+)/i)
           if (poMatch && poMatch[1]) {
             result.poNumber = poMatch[1].trim()
           }
         }
-        if (val.startsWith('Date:')) {
-          const dateMatch = val.match(/Date:\s*(.+)/)
-          if (dateMatch) {
-            result.date = dateMatch[1].trim()
+
+        // Check for date patterns
+        if (lowerVal.startsWith('date:') || lowerVal === 'date') {
+          if (lowerVal === 'date' && values[j + 1]) {
+            result.date = values[j + 1].trim()
+          } else {
+            const dateMatch = val.match(/date:?\s*(.+)/i)
+            if (dateMatch) {
+              result.date = dateMatch[1].trim()
+            }
           }
         }
+
         // Look for production notes
-        if (val.toLowerCase().includes('production notes')) {
+        if (lowerVal.includes('production notes') || lowerVal.includes('notes:')) {
           result.notes = val
         }
       }
     }
 
-    // Find header row - look for "Color" and "QTY" columns
+    // Find header row - look for columns that indicate product data
     const lowerValues = values.map(v => v.toLowerCase().trim())
     if (headerRowIndex === -1) {
-      // New format: first column is product name (no header), has "Color" and "QTY"
-      if (lowerValues.includes('color') && (lowerValues.includes('qty') || lowerValues.includes('quantity'))) {
+      // Look for color column (required)
+      const hasColor = findColumnIndex(lowerValues, ['color', 'colour', 'colorway']) !== -1
+      // Look for quantity column (required)
+      const hasQty = findColumnIndex(lowerValues, ['qty', 'quantity', 'amount', 'count', 'units']) !== -1
+
+      if (hasColor && hasQty) {
         headerRowIndex = i
-        // Product is in first column (index 0) - may not have a "Product" header
-        productIdx = lowerValues.includes('product') ? lowerValues.indexOf('product') : 0
-        colorIdx = lowerValues.indexOf('color')
-        qtyIdx = lowerValues.includes('qty') ? lowerValues.indexOf('qty') : lowerValues.indexOf('quantity')
-        notesIdx = lowerValues.indexOf('notes')
-        rimColorIdx = lowerValues.indexOf('rim color')
+
+        // Find product column - try multiple possible names, default to first column
+        productIdx = findColumnIndex(lowerValues, ['product', 'item', 'model', 'sku', 'name', 'yoyo', 'yo-yo'])
+        if (productIdx === -1) productIdx = 0  // Default to first column
+
+        colorIdx = findColumnIndex(lowerValues, ['color', 'colour', 'colorway'])
+        qtyIdx = findColumnIndex(lowerValues, ['qty', 'quantity', 'amount', 'count', 'units'])
+        notesIdx = findColumnIndex(lowerValues, ['notes', 'note', 'comments', 'comment'])
+        rimColorIdx = findColumnIndex(lowerValues, ['rim color', 'rim', 'ring color', 'ring', 'steel color'])
         continue
       }
     }
@@ -122,13 +146,22 @@ function parseCaribouCSV(csvText: string): ParsedPO {
     const notesVal = notesIdx >= 0 ? values[notesIdx]?.trim() || '' : ''
     const rimColorVal = rimColorIdx >= 0 ? values[rimColorIdx]?.trim() || '' : ''
 
-    // Skip empty rows or total row
-    if (qtyVal.toLowerCase() === '' || productVal.toLowerCase() === 'total:' || colorVal.toLowerCase() === 'total:') {
+    // Skip empty rows or total/summary rows
+    const lowerProduct = productVal.toLowerCase()
+    const lowerColor = colorVal.toLowerCase()
+    if (lowerProduct.includes('total') || lowerColor.includes('total') ||
+        lowerProduct.includes('subtotal') || lowerColor.includes('subtotal') ||
+        lowerProduct.includes('grand total') || lowerColor.includes('grand total')) {
       continue
     }
 
-    // Parse quantity
-    const quantity = parseInt(qtyVal, 10)
+    // Skip if no quantity
+    if (qtyVal === '') continue
+
+    // Parse quantity - handle various formats like "50", "50 pcs", etc.
+    const qtyMatch = qtyVal.match(/(\d+)/)
+    if (!qtyMatch) continue
+    const quantity = parseInt(qtyMatch[1], 10)
     if (isNaN(quantity) || quantity <= 0) {
       continue
     }
