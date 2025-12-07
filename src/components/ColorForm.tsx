@@ -1,8 +1,9 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Image from 'next/image'
+import { SuccessMessage } from './SuccessMessage'
 
 function formatImageUrl(url: string | null): string | null {
   if (!url) return null
@@ -56,8 +57,10 @@ export function ColorForm({ initialData }: ColorFormProps) {
   const [analyzing, setAnalyzing] = useState(false)
   const [imageUrl, setImageUrl] = useState('')
   const [fetchingUrl, setFetchingUrl] = useState(false)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   const isEditing = !!initialData?.id
+  const clearSuccessMessage = useCallback(() => setSuccessMessage(null), [])
 
   // Filter pantones based on search
   const filteredPantones = pantones.filter((pantone) => {
@@ -152,6 +155,7 @@ export function ColorForm({ initialData }: ColorFormProps) {
     if (isEditing) {
       // Stay on page for continued editing
       setSaving(false)
+      setSuccessMessage('Color saved successfully!')
       router.refresh()
     } else {
       // Redirect to the new color's edit page
@@ -204,6 +208,7 @@ export function ColorForm({ initialData }: ColorFormProps) {
       const result = await res.json()
       if (result.success) {
         setFormData({ ...formData, imageUrl: result.url })
+        setSuccessMessage('Image uploaded successfully!')
       } else {
         alert(`Upload failed: ${result.error}`)
       }
@@ -231,6 +236,7 @@ export function ColorForm({ initialData }: ColorFormProps) {
       if (result.success) {
         setFormData({ ...formData, imageUrl: result.url })
         setImageUrl('')
+        setSuccessMessage('Image fetched successfully!')
       } else {
         alert(`Failed to fetch image: ${result.error}`)
       }
@@ -241,6 +247,8 @@ export function ColorForm({ initialData }: ColorFormProps) {
   }
 
   return (
+    <>
+    <SuccessMessage message={successMessage} onClear={clearSuccessMessage} />
     <form onSubmit={handleSubmit} className="space-y-6">
       {isEditing && (
         <div className="flex justify-end">
@@ -541,5 +549,6 @@ export function ColorForm({ initialData }: ColorFormProps) {
         </button>
       </div>
     </form>
+    </>
   )
 }

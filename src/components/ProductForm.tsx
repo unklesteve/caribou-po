@@ -1,8 +1,9 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import Image from 'next/image'
+import { SuccessMessage } from './SuccessMessage'
 
 interface EngravingArt {
   id: string
@@ -80,8 +81,10 @@ export function ProductForm({ initialData }: ProductFormProps) {
   const [showQuoteForm, setShowQuoteForm] = useState(false)
   const [newQuote, setNewQuote] = useState({ quoteDate: new Date().toISOString().split('T')[0], unitPrice: '', notes: '' })
   const [savingQuote, setSavingQuote] = useState(false)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   const isEditing = !!initialData?.id
+  const clearSuccessMessage = useCallback(() => setSuccessMessage(null), [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -90,14 +93,21 @@ export function ProductForm({ initialData }: ProductFormProps) {
     const url = isEditing ? `/api/products/${initialData.id}` : '/api/products'
     const method = isEditing ? 'PUT' : 'POST'
 
-    await fetch(url, {
+    const res = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(formData),
     })
 
-    router.push('/products')
-    router.refresh()
+    if (isEditing) {
+      setSaving(false)
+      setSuccessMessage('Product saved successfully!')
+      router.refresh()
+    } else {
+      const data = await res.json()
+      router.push(`/products/${data.id}/edit`)
+      router.refresh()
+    }
   }
 
   function handleChange(
@@ -128,6 +138,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
       const result = await res.json()
       if (result.success) {
         setFormData({ ...formData, imageUrl: result.url })
+        setSuccessMessage('Image uploaded successfully!')
       } else {
         alert(`Upload failed: ${result.error}`)
       }
@@ -152,6 +163,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
       if (result.success) {
         setFormData({ ...formData, imageUrl: result.url })
         setImageUrl('')
+        setSuccessMessage('Image fetched successfully!')
       } else {
         alert(`Failed to fetch image: ${result.error}`)
       }
@@ -232,6 +244,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
         setEngravingArt([...engravingArt, result])
         setNewEngraving({ name: '', imageUrl: '', position: 'Side 1' })
         setShowEngravingForm(false)
+        setSuccessMessage('Engraving art added successfully!')
       } else {
         alert('Failed to add engraving')
       }
@@ -282,6 +295,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
         }
         setNewQuote({ quoteDate: new Date().toISOString().split('T')[0], unitPrice: '', notes: '' })
         setShowQuoteForm(false)
+        setSuccessMessage('Quote added successfully!')
       } else {
         alert('Failed to add quote')
       }
@@ -335,6 +349,8 @@ export function ProductForm({ initialData }: ProductFormProps) {
   }
 
   return (
+    <>
+    <SuccessMessage message={successMessage} onClear={clearSuccessMessage} />
     <form onSubmit={handleSubmit} className="space-y-6">
       {isEditing && (
         <div className="flex justify-end">
@@ -674,10 +690,10 @@ export function ProductForm({ initialData }: ProductFormProps) {
         <div className="bg-white shadow rounded-lg p-6">
           <div className="flex justify-between items-center mb-4">
             <div>
-              <h2 className="text-lg font-medium text-gray-900">Price Quote History</h2>
+              <h2 className="text-lg font-medium text-gray-900">Cost Quote History</h2>
               {quotes.length > 0 && (
                 <p className="text-sm text-gray-500">
-                  Current price: {formatCurrency(quotes[0].unitPrice)}
+                  Current cost: {formatCurrency(quotes[0].unitPrice)}
                   {getPriceChange() !== null && (
                     <span className={`ml-2 ${getPriceChange()! >= 0 ? 'text-red-600' : 'text-green-600'}`}>
                       ({getPriceChange()! >= 0 ? '+' : ''}{getPriceChange()!.toFixed(1)}% from first quote)
@@ -711,7 +727,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Unit Price *
+                    Unit Cost *
                   </label>
                   <div className="relative">
                     <span className="absolute left-3 top-2 text-gray-500">$</span>
@@ -755,7 +771,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
           {/* Price History Chart */}
           {quotes.length > 1 && (
             <div className="mb-6">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Price Trend</h3>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Cost Trend</h3>
               <div className="h-32 flex items-end gap-1 bg-gray-50 rounded-lg p-4">
                 {[...quotes].reverse().map((quote, index, arr) => {
                   const prices = arr.map(q => q.unitPrice)
@@ -797,7 +813,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Price</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Cost</th>
                     <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Change</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Notes</th>
                     <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase"></th>
@@ -864,5 +880,6 @@ export function ProductForm({ initialData }: ProductFormProps) {
         </button>
       </div>
     </form>
+    </>
   )
 }

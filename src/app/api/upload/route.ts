@@ -18,10 +18,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate file type
-    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf']
     if (!validTypes.includes(file.type)) {
       return NextResponse.json(
-        { success: false, error: 'Invalid file type. Use JPEG, PNG, GIF, or WebP.' },
+        { success: false, error: 'Invalid file type. Use JPEG, PNG, GIF, WebP, or PDF.' },
         { status: 400 }
       )
     }
