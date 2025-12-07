@@ -199,13 +199,12 @@ export async function GET(
     const colorDescription = item.color?.description || ''
 
     // Calculate card height based on content
-    // Base: product name + SKU + color name + tags + pantone = ~45
-    let leftContentHeight = 45
+    // Base: product name (5) + SKU (6) + color name (5) = 16, plus padding
+    let leftContentHeight = 20
 
-    // Add height for description (estimate ~4pt per line, max 60 chars per line)
-    if (colorDescription) {
-      const descLines = Math.min(3, Math.ceil(colorDescription.length / 50))
-      leftContentHeight += descLines * 4
+    // Add height for tags
+    if (colorTags.length > 0) {
+      leftContentHeight += 6
     }
 
     // Add height for rim color if present
@@ -213,10 +212,21 @@ export async function GET(
       leftContentHeight += 5
     }
 
+    // Add height for description (estimate ~4pt per line, max 50 chars per line)
+    if (colorDescription) {
+      const descLines = Math.min(3, Math.ceil(colorDescription.length / 50))
+      leftContentHeight += descLines * 4 + 2
+    }
+
+    // Add height for Pantone chips (always need space if present)
+    if (pantoneChips.length > 0) {
+      leftContentHeight += 15  // chip height (8) + code text (3) + spacing (4)
+    }
+
     // Calculate right side height for engravings
-    // Each engraving needs: label (5) + image height (18) + spacing (3) = 26
+    // Each engraving needs: image height (18) + spacing (4) = 22
     const engravingsHeight = engravings.length > 0
-      ? 14 + (engravings.length * 24)  // 14 for "Engravings:" label + qty display
+      ? 14 + 5 + (engravings.length * 22)  // qty display + label + engravings
       : 14  // Just quantity display
 
     // Card height is the max of left content, right content, or color image height
@@ -377,7 +387,7 @@ export async function GET(
     doc.setFontSize(9)
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(100, 100, 100)
-    doc.text(item.product.unit, rightX + rightSectionWidth / 2, rightY + 8, { align: 'center' })
+    doc.text('pieces', rightX + rightSectionWidth / 2, rightY + 8, { align: 'center' })
     rightY += 14
 
     // Engravings section
@@ -392,25 +402,33 @@ export async function GET(
         const engArt = eng.engravingArt
         if (!engArt) continue
 
-        // Engraving image
+        // Engraving image - draw in a contained area without stretching
+        let engImgDrawn = false
         if (engArt.imageUrl && engravingImages.has(engArt.imageUrl)) {
           const imgData = engravingImages.get(engArt.imageUrl)
           if (imgData) {
             try {
+              // Use jsPDF's automatic aspect ratio by only specifying width
+              // The image will scale proportionally
               doc.addImage(
                 `data:image/${imgData.format.toLowerCase()};base64,${imgData.base64}`,
                 imgData.format,
                 rightX,
                 rightY,
                 engravingImageSize,
-                engravingImageSize
+                0  // Height 0 means auto-calculate from aspect ratio
               )
-              doc.setDrawColor(200, 200, 200)
-              doc.rect(rightX, rightY, engravingImageSize, engravingImageSize, 'S')
+              engImgDrawn = true
             } catch {
               // Skip if can't add
             }
           }
+        }
+        // Draw placeholder border if no image
+        if (!engImgDrawn) {
+          doc.setDrawColor(220, 220, 220)
+          doc.setFillColor(248, 248, 248)
+          doc.rect(rightX, rightY, engravingImageSize, engravingImageSize * 0.7, 'FD')
         }
 
         // Engraving name and position
@@ -427,14 +445,6 @@ export async function GET(
         rightY += engravingImageSize + 4
       }
     }
-
-    // Item number badge in top-left corner
-    doc.setFillColor(40, 0, 3)  // Maroon
-    doc.circle(startX + 8, cardY + 8, 5, 'F')
-    doc.setFontSize(8)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(255, 255, 255)
-    doc.text(`${itemIndex + 1}`, startX + 8, cardY + 10, { align: 'center' })
 
     cardY += cardHeight + 5
   }
