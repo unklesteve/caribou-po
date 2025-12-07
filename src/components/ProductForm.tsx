@@ -90,14 +90,27 @@ export function ProductForm({ initialData }: ProductFormProps) {
     const url = isEditing ? `/api/products/${initialData.id}` : '/api/products'
     const method = isEditing ? 'PUT' : 'POST'
 
-    await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData),
-    })
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      })
 
-    router.push('/products')
-    router.refresh()
+      const result = await res.json()
+
+      if (!res.ok) {
+        alert(`Failed to save product: ${result.error || res.statusText}`)
+        setSaving(false)
+        return
+      }
+
+      router.push('/products')
+      router.refresh()
+    } catch (error) {
+      alert(`Failed to save product: ${error}`)
+      setSaving(false)
+    }
   }
 
   function handleChange(
