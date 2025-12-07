@@ -69,6 +69,11 @@ export async function GET(
               },
             },
           },
+          engravings: {
+            include: {
+              engravingArt: true,
+            },
+          },
         },
       },
     },
@@ -88,6 +93,22 @@ export async function GET(
           const imageData = await fetchImageAsBase64(item.color.imageUrl)
           if (imageData) {
             colorImages.set(item.color.imageUrl, imageData)
+          }
+        }
+      })
+  )
+
+  // Pre-fetch all engraving images
+  const engravingImages: Map<string, { base64: string; format: string }> = new Map()
+  await Promise.all(
+    po.lineItems
+      .flatMap(item => item.engravings || [])
+      .filter(eng => eng.engravingArt?.imageUrl)
+      .map(async (eng) => {
+        if (eng.engravingArt?.imageUrl && !engravingImages.has(eng.engravingArt.imageUrl)) {
+          const imageData = await fetchImageAsBase64(eng.engravingArt.imageUrl)
+          if (imageData) {
+            engravingImages.set(eng.engravingArt.imageUrl, imageData)
           }
         }
       })
@@ -159,9 +180,10 @@ export async function GET(
   y += 15
 
   // Line items table
-  const colWidths = [60, 90, 30]  // Adjusted for color image
+  const colWidths = [50, 60, 50, 20]  // Product, Color, Engravings, Qty
   const startX = 20
   const colorImageSize = 12  // Size of color thumbnail
+  const engravingImageSize = 10  // Size of engraving thumbnail
   let tableY = y
 
   // Table header - Caribou Lodge maroon (#280003)
@@ -175,6 +197,8 @@ export async function GET(
   colX += colWidths[0]
   doc.text('Color', colX, tableY + 6)
   colX += colWidths[1]
+  doc.text('Engravings', colX, tableY + 6)
+  colX += colWidths[2]
   doc.text('Qty', colX, tableY + 6)
 
   tableY += 10
@@ -187,6 +211,8 @@ export async function GET(
     const pantoneChips = item.color?.pantoneChips || []
     const hasSteelRim = hasSteel(item.product.material) && item.ringColor
     const hasColorImage = hasColor && item.color?.imageUrl && colorImages.has(item.color.imageUrl)
+    const engravings = item.engravings || []
+
     // Calculate row height based on content
     let rowHeight = 14
     if (hasColor && pantoneChips.length > 0) {
@@ -198,13 +224,18 @@ export async function GET(
     if (hasColorImage && rowHeight < 16) {
       rowHeight = 16
     }
+    // Ensure minimum height for engravings (each engraving needs ~12 height)
+    const engravingsHeight = engravings.length * 12 + 2
+    if (engravingsHeight > rowHeight) {
+      rowHeight = engravingsHeight
+    }
 
     // Product column
-    doc.setFontSize(9)
+    doc.setFontSize(8)
     doc.setFont('helvetica', 'bold')
     doc.text(item.product.name, startX + 2, tableY + 5, { maxWidth: colWidths[0] - 4 })
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(7)
+    doc.setFontSize(6)
     doc.setTextColor(100, 100, 100)
     doc.text(item.product.sku, startX + 2, tableY + 10, { maxWidth: colWidths[0] - 4 })
     doc.setTextColor(0, 0, 0)
@@ -237,14 +268,14 @@ export async function GET(
         }
       }
 
-      doc.setFontSize(8)
+      doc.setFontSize(7)
       doc.setFont('helvetica', 'bold')
       doc.text(item.color.name, colX + 2 + textOffsetX, tableY + 5, { maxWidth: colWidths[1] - 4 - textOffsetX })
       doc.setFont('helvetica', 'normal')
 
       // Show rim color for steel products
       if (hasSteel(item.product.material) && item.ringColor) {
-        doc.setFontSize(7)
+        doc.setFontSize(6)
         doc.setTextColor(80, 80, 80)
         doc.text(`Rim: ${item.ringColor}`, colX + 2 + textOffsetX, tableY + 10, { maxWidth: colWidths[1] - 4 - textOffsetX })
         doc.setTextColor(0, 0, 0)
@@ -252,16 +283,16 @@ export async function GET(
 
       // Pantone chips
       if (pantoneChips.length > 0) {
-        doc.setFontSize(6)
+        doc.setFontSize(5)
         doc.setTextColor(80, 80, 80)
-        const chipWidth = 8
-        const chipHeight = 6
+        const chipWidth = 6
+        const chipHeight = 5
         let chipX = colX + 2 + textOffsetX
         // Move chips down if rim color is shown
         const chipYOffset = hasSteelRim ? 6 : 0
         const chipY = tableY + 8 + chipYOffset
 
-        for (const cp of pantoneChips.slice(0, 4)) {
+        for (const cp of pantoneChips.slice(0, 3)) {
           // Draw color swatch
           const hex = cp.pantone.hexColor
           const r = parseInt(hex.slice(1, 3), 16)
@@ -275,22 +306,74 @@ export async function GET(
         }
 
         // List Pantone codes below swatches
-        doc.setFontSize(5)
-        const pantoneNames = pantoneChips.map(cp => cp.pantone.code).slice(0, 4).join(', ')
-        doc.text(pantoneNames, colX + 2 + textOffsetX, tableY + 17 + chipYOffset, { maxWidth: colWidths[1] - 4 - textOffsetX })
+        doc.setFontSize(4)
+        const pantoneNames = pantoneChips.map(cp => cp.pantone.code).slice(0, 3).join(', ')
+        doc.text(pantoneNames, colX + 2 + textOffsetX, tableY + 15 + chipYOffset, { maxWidth: colWidths[1] - 4 - textOffsetX })
         doc.setTextColor(0, 0, 0)
       }
     } else {
-      doc.setFontSize(8)
+      doc.setFontSize(7)
+      doc.setTextColor(150, 150, 150)
+      doc.text('-', colX + 2, tableY + 6)
+      doc.setTextColor(0, 0, 0)
+    }
+
+    // Engravings column
+    colX += colWidths[1]
+    if (engravings.length > 0) {
+      let engY = tableY + 2
+      for (const eng of engravings) {
+        const engArt = eng.engravingArt
+        if (!engArt) continue
+
+        // Draw engraving image if available
+        if (engArt.imageUrl && engravingImages.has(engArt.imageUrl)) {
+          const imgData = engravingImages.get(engArt.imageUrl)
+          if (imgData) {
+            try {
+              doc.addImage(
+                `data:image/${imgData.format.toLowerCase()};base64,${imgData.base64}`,
+                imgData.format,
+                colX + 2,
+                engY,
+                engravingImageSize,
+                engravingImageSize
+              )
+              // Draw border around image
+              doc.setDrawColor(200, 200, 200)
+              doc.rect(colX + 2, engY, engravingImageSize, engravingImageSize, 'S')
+            } catch {
+              // Silently fail if image can't be added
+            }
+          }
+        }
+
+        // Engraving name and position
+        doc.setFontSize(6)
+        doc.setFont('helvetica', 'bold')
+        doc.text(engArt.name, colX + engravingImageSize + 4, engY + 4, { maxWidth: colWidths[2] - engravingImageSize - 6 })
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(100, 100, 100)
+        doc.text(engArt.position, colX + engravingImageSize + 4, engY + 8, { maxWidth: colWidths[2] - engravingImageSize - 6 })
+        doc.setTextColor(0, 0, 0)
+
+        engY += 12
+      }
+    } else {
+      doc.setFontSize(7)
       doc.setTextColor(150, 150, 150)
       doc.text('-', colX + 2, tableY + 6)
       doc.setTextColor(0, 0, 0)
     }
 
     // Quantity column
-    colX += colWidths[1]
+    colX += colWidths[2]
     doc.setFontSize(8)
-    doc.text(`${item.quantity} ${item.product.unit}`, colX + 2, tableY + 6)
+    doc.text(`${item.quantity}`, colX + 2, tableY + 6)
+    doc.setFontSize(6)
+    doc.setTextColor(100, 100, 100)
+    doc.text(item.product.unit, colX + 2, tableY + 10)
+    doc.setTextColor(0, 0, 0)
 
     tableY += rowHeight
     doc.setDrawColor(200, 200, 200)
