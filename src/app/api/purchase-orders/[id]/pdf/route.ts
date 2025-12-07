@@ -12,11 +12,42 @@ function formatDate(date: Date): string {
   })
 }
 
+function hasSteel(material: string | null | undefined): boolean {
+  return material?.includes('Steel') || false
+}
+
 // Load logo as base64
 function getLogoBase64(): string {
   const logoPath = path.join(process.cwd(), 'public', 'caribou-logo.png')
   const logoBuffer = fs.readFileSync(logoPath)
   return logoBuffer.toString('base64')
+}
+
+// Fetch image from URL and return as base64
+async function fetchImageAsBase64(url: string): Promise<{ base64: string; format: string } | null> {
+  try {
+    // Handle SSL parameter for URLs that need it
+    const fetchUrl = url.includes('?')
+      ? (url.includes('ssl=') ? url : `${url}&ssl=1`)
+      : `${url}?ssl=1`
+
+    const response = await fetch(fetchUrl)
+    if (!response.ok) return null
+
+    const contentType = response.headers.get('content-type') || 'image/jpeg'
+    const arrayBuffer = await response.arrayBuffer()
+    const base64 = Buffer.from(arrayBuffer).toString('base64')
+
+    // Determine format from content type
+    let format = 'JPEG'
+    if (contentType.includes('png')) format = 'PNG'
+    else if (contentType.includes('gif')) format = 'GIF'
+    else if (contentType.includes('webp')) format = 'WEBP'
+
+    return { base64, format }
+  } catch {
+    return null
+  }
 }
 
 export async function GET(
@@ -46,6 +77,21 @@ export async function GET(
   if (!po) {
     return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 })
   }
+
+  // Pre-fetch all color images
+  const colorImages: Map<string, { base64: string; format: string }> = new Map()
+  await Promise.all(
+    po.lineItems
+      .filter(item => item.color?.imageUrl)
+      .map(async (item) => {
+        if (item.color?.imageUrl) {
+          const imageData = await fetchImageAsBase64(item.color.imageUrl)
+          if (imageData) {
+            colorImages.set(item.color.imageUrl, imageData)
+          }
+        }
+      })
+  )
 
   // Create PDF
   const doc = new jsPDF()
@@ -113,8 +159,9 @@ export async function GET(
   y += 15
 
   // Line items table
-  const colWidths = [70, 80, 30]
+  const colWidths = [60, 90, 30]  // Adjusted for color image
   const startX = 20
+  const colorImageSize = 12  // Size of color thumbnail
   let tableY = y
 
   // Table header - Caribou Lodge maroon (#280003)
@@ -138,7 +185,19 @@ export async function GET(
   for (const item of po.lineItems) {
     const hasColor = item.color !== null
     const pantoneChips = item.color?.pantoneChips || []
-    const rowHeight = hasColor && pantoneChips.length > 0 ? 20 : 14
+    const hasSteelRim = hasSteel(item.product.material) && item.ringColor
+    const hasColorImage = hasColor && item.color?.imageUrl && colorImages.has(item.color.imageUrl)
+    // Calculate row height based on content
+    let rowHeight = 14
+    if (hasColor && pantoneChips.length > 0) {
+      rowHeight = hasSteelRim ? 26 : 20  // Extra space for rim color line
+    } else if (hasSteelRim) {
+      rowHeight = 18  // Just rim color, no pantone chips
+    }
+    // Ensure minimum height for color image
+    if (hasColorImage && rowHeight < 16) {
+      rowHeight = 16
+    }
 
     // Product column
     doc.setFontSize(9)
@@ -153,10 +212,43 @@ export async function GET(
     // Color column
     colX = startX + colWidths[0]
     if (hasColor && item.color) {
+      // Text offset for when image is present
+      const textOffsetX = hasColorImage ? colorImageSize + 3 : 0
+
+      // Draw color image if available
+      if (hasColorImage && item.color.imageUrl) {
+        const imgData = colorImages.get(item.color.imageUrl)
+        if (imgData) {
+          try {
+            doc.addImage(
+              `data:image/${imgData.format.toLowerCase()};base64,${imgData.base64}`,
+              imgData.format,
+              colX + 2,
+              tableY + 1,
+              colorImageSize,
+              colorImageSize
+            )
+            // Draw border around image
+            doc.setDrawColor(200, 200, 200)
+            doc.rect(colX + 2, tableY + 1, colorImageSize, colorImageSize, 'S')
+          } catch {
+            // Silently fail if image can't be added
+          }
+        }
+      }
+
       doc.setFontSize(8)
       doc.setFont('helvetica', 'bold')
-      doc.text(item.color.name, colX + 2, tableY + 5, { maxWidth: colWidths[1] - 4 })
+      doc.text(item.color.name, colX + 2 + textOffsetX, tableY + 5, { maxWidth: colWidths[1] - 4 - textOffsetX })
       doc.setFont('helvetica', 'normal')
+
+      // Show rim color for steel products
+      if (hasSteel(item.product.material) && item.ringColor) {
+        doc.setFontSize(7)
+        doc.setTextColor(80, 80, 80)
+        doc.text(`Rim: ${item.ringColor}`, colX + 2 + textOffsetX, tableY + 10, { maxWidth: colWidths[1] - 4 - textOffsetX })
+        doc.setTextColor(0, 0, 0)
+      }
 
       // Pantone chips
       if (pantoneChips.length > 0) {
@@ -164,8 +256,10 @@ export async function GET(
         doc.setTextColor(80, 80, 80)
         const chipWidth = 8
         const chipHeight = 6
-        let chipX = colX + 2
-        const chipY = tableY + 8
+        let chipX = colX + 2 + textOffsetX
+        // Move chips down if rim color is shown
+        const chipYOffset = hasSteelRim ? 6 : 0
+        const chipY = tableY + 8 + chipYOffset
 
         for (const cp of pantoneChips.slice(0, 4)) {
           // Draw color swatch
@@ -183,7 +277,7 @@ export async function GET(
         // List Pantone codes below swatches
         doc.setFontSize(5)
         const pantoneNames = pantoneChips.map(cp => cp.pantone.code).slice(0, 4).join(', ')
-        doc.text(pantoneNames, colX + 2, tableY + 17, { maxWidth: colWidths[1] - 4 })
+        doc.text(pantoneNames, colX + 2 + textOffsetX, tableY + 17 + chipYOffset, { maxWidth: colWidths[1] - 4 - textOffsetX })
         doc.setTextColor(0, 0, 0)
       }
     } else {

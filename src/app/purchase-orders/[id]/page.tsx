@@ -40,10 +40,12 @@ interface LineItemEngraving {
 interface LineItem {
   id: string
   quantity: number
+  ringColor: string | null
   product: {
     sku: string
     name: string
     unit: string
+    material?: string | null
     imageUrl?: string | null
   }
   color: YoyoColor | null
@@ -86,12 +88,16 @@ const statusLabels: Record<string, string> = {
 
 const statusOptions = ['ORDERED', 'IN_PRODUCTION', 'RECEIVED']
 
+function hasSteel(material: string | null | undefined): boolean {
+  return material?.includes('Steel') || false
+}
+
 export default function PurchaseOrderDetailPage({
   params,
 }: {
   params: { id: string }
 }) {
-  const router = useRouter()
+  useRouter() // Used for navigation context
   const [po, setPO] = useState<PurchaseOrder | null>(null)
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
@@ -249,6 +255,11 @@ export default function PurchaseOrderDetailPage({
                             <div className="font-medium text-gray-900 text-sm">
                               {item.color.name}
                             </div>
+                            {hasSteel(item.product.material) && item.ringColor && (
+                              <div className="text-xs text-gray-600 mt-0.5">
+                                Rim: {item.ringColor}
+                              </div>
+                            )}
                             {item.color.pantoneChips.length > 0 && (
                               <div className="flex gap-1 mt-1 flex-wrap">
                                 {item.color.pantoneChips.map((cp, idx) => (
