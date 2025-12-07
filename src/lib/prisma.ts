@@ -7,14 +7,25 @@ const globalForPrisma = globalThis as unknown as {
 }
 
 function createPrismaClient() {
-  // Use Turso in production, local SQLite in development
-  if (process.env.TURSO_DATABASE_URL && process.env.TURSO_AUTH_TOKEN) {
+  const tursoUrl = process.env.TURSO_DATABASE_URL
+  const tursoToken = process.env.TURSO_AUTH_TOKEN
+
+  // Use Turso if configured
+  if (tursoUrl && tursoToken) {
     const libsql = createClient({
-      url: process.env.TURSO_DATABASE_URL,
-      authToken: process.env.TURSO_AUTH_TOKEN,
+      url: tursoUrl,
+      authToken: tursoToken,
     })
     const adapter = new PrismaLibSQL(libsql)
     return new PrismaClient({ adapter })
+  }
+
+  // In production, require Turso
+  if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+    throw new Error(
+      'Missing TURSO_DATABASE_URL or TURSO_AUTH_TOKEN environment variables. ' +
+      `Got URL: ${tursoUrl ? 'set' : 'missing'}, Token: ${tursoToken ? 'set' : 'missing'}`
+    )
   }
 
   // Fallback to regular Prisma client for local development
