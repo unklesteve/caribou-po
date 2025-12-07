@@ -1,0 +1,169 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Supplier {
+  id            String   @id @default(cuid())
+  name          String
+  email         String?
+  phone         String?
+  address       String?
+  city          String?
+  state         String?
+  zip           String?
+  country       String?
+  paymentTerms  String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  purchaseOrders PurchaseOrder[]
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  sku         String   @unique
+  name        String
+  description String?
+  imageUrl    String?
+  unitPrice   Float
+  unit        String   @default("each")
+  category    String?
+  material    String?  // "6061 Aluminum", "7075 Aluminum", "6061 Aluminum + Steel", "7075 Aluminum + Steel", "Wood"
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lineItems    LineItem[]
+  engravingArt EngravingArt[]
+  quotes       ProductQuote[]
+}
+
+model ProductQuote {
+  id        String   @id @default(cuid())
+  productId String
+  quoteDate DateTime
+  unitPrice Float
+  notes     String?
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, quoteDate])
+}
+
+model EngravingArt {
+  id        String   @id @default(cuid())
+  name      String
+  imageUrl  String
+  position  String   // "Side 1", "Side 2", "Rim"
+  productId String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product          Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  lineItemEngravings LineItemEngraving[]
+}
+
+model PurchaseOrder {
+  id         String    @id @default(cuid())
+  poNumber   String    @unique
+  supplierId String
+  status     String    @default("DRAFT")
+  notes      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  sentAt     DateTime?
+  receivedAt DateTime?
+
+  supplier  Supplier   @relation(fields: [supplierId], references: [id])
+  lineItems LineItem[]
+}
+
+model LineItem {
+  id              String   @id @default(cuid())
+  purchaseOrderId String
+  productId       String
+  colorId         String?
+  ringColor       String?  // Text field for steel ring color
+  quantity        Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  purchaseOrder PurchaseOrder       @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product       Product             @relation(fields: [productId], references: [id])
+  color         YoyoColor?          @relation(fields: [colorId], references: [id])
+  engravings    LineItemEngraving[]
+}
+
+// Junction table for line items and their engraving selections
+model LineItemEngraving {
+  id             String @id @default(cuid())
+  lineItemId     String
+  engravingArtId String
+
+  lineItem    LineItem     @relation(fields: [lineItemId], references: [id], onDelete: Cascade)
+  engravingArt EngravingArt @relation(fields: [engravingArtId], references: [id], onDelete: Cascade)
+
+  @@unique([lineItemId, engravingArtId])
+}
+
+model POCounter {
+  id      String @id @default("singleton")
+  counter Int    @default(0)
+}
+
+model YoyoColor {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  imageUrl      String?
+  description   String?
+  isActive      Boolean  @default(true)
+  pantoneLocked Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  pantoneChips ColorPantone[]
+  lineItems    LineItem[]
+  tags         ColorTag[]
+}
+
+model ColorTag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  colors YoyoColor[]
+}
+
+model PantoneChip {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  hexColor  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  colors ColorPantone[]
+}
+
+model ColorPantone {
+  id           String      @id @default(cuid())
+  colorId      String
+  pantoneId    String
+  orderIndex   Int         @default(0)
+
+  color   YoyoColor   @relation(fields: [colorId], references: [id], onDelete: Cascade)
+  pantone PantoneChip @relation(fields: [pantoneId], references: [id], onDelete: Cascade)
+
+  @@unique([colorId, pantoneId])
+}
