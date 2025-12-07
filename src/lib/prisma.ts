@@ -6,14 +6,19 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-// Hardcoded for testing - will remove once env vars work
-const TURSO_URL = 'libsql://caribou-po-unklesteve.aws-us-east-2.turso.io'
-const TURSO_TOKEN = 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NjUxMjE3NDIsImlkIjoiZWJlMDc3ODMtNjViOS00M2M2LWEyODgtYWQwNDlhYjQyNDlkIiwicmlkIjoiNjljMWQyMzYtOWE5MS00NWE3LTk2ZmMtMmU2MmViMmJlNDNlIn0.737EYWRmmODxVLo1tCYggLj6BrAZ0Tb8mRVw1BjfGF0NGWJ2mGyhxRGkEsqoPqe3I5j9MUOlhDNj-akdvJBNBg'
-
 function createPrismaClient(): PrismaClient {
+  // Try multiple ways to access the env vars
+  const tursoUrl = process.env.TURSO_DATABASE_URL
+    || process.env.NEXT_PUBLIC_TURSO_DATABASE_URL
+    || 'libsql://caribou-po-unklesteve.aws-us-east-2.turso.io'
+
+  const tursoToken = process.env.TURSO_AUTH_TOKEN
+    || process.env.NEXT_PUBLIC_TURSO_AUTH_TOKEN
+    || 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NjUxMjE3NDIsImlkIjoiZWJlMDc3ODMtNjViOS00M2M2LWEyODgtYWQwNDlhYjQyNDlkIiwicmlkIjoiNjljMWQyMzYtOWE5MS00NWE3LTk2ZmMtMmU2MmViMmJlNDNlIn0.737EYWRmmODxVLo1tCYggLj6BrAZ0Tb8mRVw1BjfGF0NGWJ2mGyhxRGkEsqoPqe3I5j9MUOlhDNj-akdvJBNBg'
+
   const libsql = createClient({
-    url: TURSO_URL,
-    authToken: TURSO_TOKEN,
+    url: tursoUrl,
+    authToken: tursoToken,
   })
   const adapter = new PrismaLibSQL(libsql)
   return new PrismaClient({ adapter })
