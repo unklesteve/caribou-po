@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import path from 'path'
 import { promisify } from 'util'
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const getPixels: any = require('get-pixels')
+
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
@@ -139,7 +142,6 @@ function isBackgroundColor(rgb: { r: number; g: number; b: number }): boolean {
 
 // Extract colors from image using get-pixels
 async function extractDominantColors(imageUrl: string): Promise<{ color: { r: number; g: number; b: number }; weight: number }[]> {
-  const getPixels = require('get-pixels')
   const getPixelsAsync = promisify(getPixels)
 
   let imagePath: string

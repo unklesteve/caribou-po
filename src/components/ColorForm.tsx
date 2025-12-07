@@ -199,7 +199,7 @@ export function ColorForm({ initialData }: ColorFormProps) {
       } else {
         alert(`Upload failed: ${result.error}`)
       }
-    } catch (error) {
+    } catch {
       alert('Upload failed')
     }
     setUploading(false)
@@ -226,7 +226,7 @@ export function ColorForm({ initialData }: ColorFormProps) {
       } else {
         alert(`Failed to fetch image: ${result.error}`)
       }
-    } catch (error) {
+    } catch {
       alert('Failed to fetch image from URL')
     }
     setFetchingUrl(false)
