@@ -6,7 +6,7 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-function createPrismaClient() {
+function createPrismaClient(): PrismaClient {
   const tursoUrl = process.env.TURSO_DATABASE_URL
   const tursoToken = process.env.TURSO_AUTH_TOKEN
 
@@ -20,18 +20,16 @@ function createPrismaClient() {
     return new PrismaClient({ adapter })
   }
 
-  // In production, require Turso
-  if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
-    throw new Error(
-      'Missing TURSO_DATABASE_URL or TURSO_AUTH_TOKEN environment variables. ' +
-      `Got URL: ${tursoUrl ? 'set' : 'missing'}, Token: ${tursoToken ? 'set' : 'missing'}`
-    )
-  }
-
   // Fallback to regular Prisma client for local development
   return new PrismaClient()
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient()
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+// Use a getter to lazily initialize the client at runtime, not build time
+export const prisma = new Proxy({} as PrismaClient, {
+  get(target, prop) {
+    if (!globalForPrisma.prisma) {
+      globalForPrisma.prisma = createPrismaClient()
+    }
+    return Reflect.get(globalForPrisma.prisma, prop)
+  },
+})
