@@ -67,6 +67,7 @@ export async function GET(
                 include: { pantone: true },
                 orderBy: { orderIndex: 'asc' },
               },
+              tags: true,
             },
           },
           engravings: {
@@ -179,154 +180,207 @@ export async function GET(
 
   y += 15
 
-  // Line items table
-  const colWidths = [50, 60, 50, 20]  // Product, Color, Engravings, Qty
+  // Line items - card-based layout for factory readability
   const startX = 20
-  const colorImageSize = 12  // Size of color thumbnail
-  const engravingImageSize = 10  // Size of engraving thumbnail
-  let tableY = y
+  const cardWidth = pageWidth - 40
+  const colorImageSize = 35  // Large color photo for factory reference
+  const engravingImageSize = 18  // Engraving thumbnail size
+  let cardY = y
+  const pageHeight = doc.internal.pageSize.getHeight()
 
-  // Table header - Caribou Lodge maroon (#280003)
-  doc.setFillColor(40, 0, 3)
-  doc.rect(startX, tableY, pageWidth - 40, 8, 'F')
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(255, 255, 255)
-  doc.setFontSize(9)
-  let colX = startX + 2
-  doc.text('Product', colX, tableY + 6)
-  colX += colWidths[0]
-  doc.text('Color', colX, tableY + 6)
-  colX += colWidths[1]
-  doc.text('Engravings', colX, tableY + 6)
-  colX += colWidths[2]
-  doc.text('Qty', colX, tableY + 6)
-
-  tableY += 10
-  doc.setTextColor(0, 0, 0)
-  doc.setFont('helvetica', 'normal')
-
-  // Table rows
-  for (const item of po.lineItems) {
+  for (let itemIndex = 0; itemIndex < po.lineItems.length; itemIndex++) {
+    const item = po.lineItems[itemIndex]
     const hasColor = item.color !== null
     const pantoneChips = item.color?.pantoneChips || []
+    const colorTags = item.color?.tags || []
     const hasSteelRim = hasSteel(item.product.material) && item.ringColor
     const hasColorImage = hasColor && item.color?.imageUrl && colorImages.has(item.color.imageUrl)
     const engravings = item.engravings || []
+    const colorDescription = item.color?.description || ''
 
-    // Calculate row height based on content
-    let rowHeight = 14
-    if (hasColor && pantoneChips.length > 0) {
-      rowHeight = hasSteelRim ? 26 : 20  // Extra space for rim color line
-    } else if (hasSteelRim) {
-      rowHeight = 18  // Just rim color, no pantone chips
+    // Calculate card height based on content
+    let cardHeight = 45  // Base height
+    if (colorDescription) {
+      // Estimate lines needed for description
+      const descLines = Math.ceil(colorDescription.length / 60)
+      cardHeight += descLines * 4
     }
-    // Ensure minimum height for color image
-    if (hasColorImage && rowHeight < 16) {
-      rowHeight = 16
-    }
-    // Ensure minimum height for engravings (each engraving needs ~12 height)
-    const engravingsHeight = engravings.length * 12 + 2
-    if (engravingsHeight > rowHeight) {
-      rowHeight = engravingsHeight
+    // Ensure enough height for engravings
+    const engravingsNeededHeight = Math.ceil(engravings.length / 2) * 22
+    if (engravingsNeededHeight > 20) {
+      cardHeight = Math.max(cardHeight, engravingsNeededHeight + 30)
     }
 
-    // Product column
-    doc.setFontSize(8)
-    doc.setFont('helvetica', 'bold')
-    doc.text(item.product.name, startX + 2, tableY + 5, { maxWidth: colWidths[0] - 4 })
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(6)
-    doc.setTextColor(100, 100, 100)
-    doc.text(item.product.sku, startX + 2, tableY + 10, { maxWidth: colWidths[0] - 4 })
-    doc.setTextColor(0, 0, 0)
+    // Check if we need a new page
+    if (cardY + cardHeight > pageHeight - 30) {
+      doc.addPage()
+      cardY = 20
+    }
 
-    // Color column
-    colX = startX + colWidths[0]
-    if (hasColor && item.color) {
-      // Text offset for when image is present
-      const textOffsetX = hasColorImage ? colorImageSize + 3 : 0
+    // Card background with light border
+    doc.setDrawColor(200, 200, 200)
+    doc.setFillColor(252, 252, 252)
+    doc.roundedRect(startX, cardY, cardWidth, cardHeight, 2, 2, 'FD')
 
-      // Draw color image if available
-      if (hasColorImage && item.color.imageUrl) {
-        const imgData = colorImages.get(item.color.imageUrl)
-        if (imgData) {
-          try {
-            doc.addImage(
-              `data:image/${imgData.format.toLowerCase()};base64,${imgData.base64}`,
-              imgData.format,
-              colX + 2,
-              tableY + 1,
-              colorImageSize,
-              colorImageSize
-            )
-            // Draw border around image
-            doc.setDrawColor(200, 200, 200)
-            doc.rect(colX + 2, tableY + 1, colorImageSize, colorImageSize, 'S')
-          } catch {
-            // Silently fail if image can't be added
-          }
+    // === LEFT SECTION: Color Image (large) ===
+    const imageX = startX + 4
+    const imageY = cardY + 4
+
+    if (hasColorImage && item.color?.imageUrl) {
+      const imgData = colorImages.get(item.color.imageUrl)
+      if (imgData) {
+        try {
+          doc.addImage(
+            `data:image/${imgData.format.toLowerCase()};base64,${imgData.base64}`,
+            imgData.format,
+            imageX,
+            imageY,
+            colorImageSize,
+            colorImageSize
+          )
+          // Border around image
+          doc.setDrawColor(180, 180, 180)
+          doc.rect(imageX, imageY, colorImageSize, colorImageSize, 'S')
+        } catch {
+          // Draw placeholder
+          doc.setFillColor(240, 240, 240)
+          doc.rect(imageX, imageY, colorImageSize, colorImageSize, 'F')
+          doc.setFontSize(8)
+          doc.setTextColor(150, 150, 150)
+          doc.text('No Image', imageX + 5, imageY + 18)
         }
       }
-
+    } else if (hasColor) {
+      // No image placeholder
+      doc.setFillColor(240, 240, 240)
+      doc.rect(imageX, imageY, colorImageSize, colorImageSize, 'F')
+      doc.setDrawColor(200, 200, 200)
+      doc.rect(imageX, imageY, colorImageSize, colorImageSize, 'S')
       doc.setFontSize(7)
-      doc.setFont('helvetica', 'bold')
-      doc.text(item.color.name, colX + 2 + textOffsetX, tableY + 5, { maxWidth: colWidths[1] - 4 - textOffsetX })
-      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(150, 150, 150)
+      doc.text('No Image', imageX + 6, imageY + 18)
+    }
 
-      // Show rim color for steel products
-      if (hasSteel(item.product.material) && item.ringColor) {
-        doc.setFontSize(6)
-        doc.setTextColor(80, 80, 80)
-        doc.text(`Rim: ${item.ringColor}`, colX + 2 + textOffsetX, tableY + 10, { maxWidth: colWidths[1] - 4 - textOffsetX })
-        doc.setTextColor(0, 0, 0)
+    // === MIDDLE SECTION: Product & Color Info ===
+    const infoX = startX + colorImageSize + 12
+    const infoWidth = 75
+    let infoY = cardY + 6
+
+    // Product name (large, bold)
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(0, 0, 0)
+    doc.text(item.product.name, infoX, infoY)
+    infoY += 5
+
+    // Product SKU
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(100, 100, 100)
+    doc.text(`SKU: ${item.product.sku}`, infoX, infoY)
+    infoY += 6
+
+    // Color name (prominent)
+    if (hasColor && item.color) {
+      doc.setFontSize(10)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(40, 0, 3)  // Maroon
+      doc.text(item.color.name, infoX, infoY)
+      infoY += 5
+
+      // Color tags (badges)
+      if (colorTags.length > 0) {
+        let tagX = infoX
+        doc.setFontSize(7)
+        for (const tag of colorTags.slice(0, 4)) {
+          const tagWidth = doc.getTextWidth(tag.name) + 4
+          // Tag background
+          doc.setFillColor(230, 230, 250)  // Light purple/blue
+          doc.roundedRect(tagX, infoY - 3, tagWidth, 5, 1, 1, 'F')
+          doc.setTextColor(80, 80, 120)
+          doc.text(tag.name, tagX + 2, infoY)
+          tagX += tagWidth + 2
+        }
+        infoY += 6
       }
 
-      // Pantone chips
-      if (pantoneChips.length > 0) {
-        doc.setFontSize(5)
-        doc.setTextColor(80, 80, 80)
-        const chipWidth = 6
-        const chipHeight = 5
-        let chipX = colX + 2 + textOffsetX
-        // Move chips down if rim color is shown
-        const chipYOffset = hasSteelRim ? 6 : 0
-        const chipY = tableY + 8 + chipYOffset
+      // Rim color for steel products
+      if (hasSteelRim) {
+        doc.setFontSize(9)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(60, 60, 60)
+        doc.text(`Rim Color: ${item.ringColor}`, infoX, infoY)
+        infoY += 5
+      }
 
-        for (const cp of pantoneChips.slice(0, 3)) {
-          // Draw color swatch
+      // Color description
+      if (colorDescription) {
+        doc.setFontSize(8)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(80, 80, 80)
+        const splitDesc = doc.splitTextToSize(colorDescription, infoWidth)
+        doc.text(splitDesc.slice(0, 3), infoX, infoY)  // Max 3 lines
+        infoY += splitDesc.slice(0, 3).length * 4
+      }
+
+      // Pantone colors (larger swatches)
+      if (pantoneChips.length > 0) {
+        infoY += 2
+        const chipWidth = 12
+        const chipHeight = 8
+        let chipX = infoX
+
+        for (const cp of pantoneChips.slice(0, 5)) {
           const hex = cp.pantone.hexColor
           const r = parseInt(hex.slice(1, 3), 16)
           const g = parseInt(hex.slice(3, 5), 16)
           const b = parseInt(hex.slice(5, 7), 16)
           doc.setFillColor(r, g, b)
-          doc.rect(chipX, chipY, chipWidth, chipHeight, 'F')
+          doc.rect(chipX, infoY, chipWidth, chipHeight, 'F')
           doc.setDrawColor(150, 150, 150)
-          doc.rect(chipX, chipY, chipWidth, chipHeight, 'S')
-          chipX += chipWidth + 1
-        }
+          doc.rect(chipX, infoY, chipWidth, chipHeight, 'S')
 
-        // List Pantone codes below swatches
-        doc.setFontSize(4)
-        const pantoneNames = pantoneChips.map(cp => cp.pantone.code).slice(0, 3).join(', ')
-        doc.text(pantoneNames, colX + 2 + textOffsetX, tableY + 15 + chipYOffset, { maxWidth: colWidths[1] - 4 - textOffsetX })
-        doc.setTextColor(0, 0, 0)
+          // Pantone code below
+          doc.setFontSize(5)
+          doc.setTextColor(60, 60, 60)
+          doc.text(cp.pantone.code, chipX, infoY + chipHeight + 3, { maxWidth: chipWidth })
+          chipX += chipWidth + 3
+        }
       }
     } else {
-      doc.setFontSize(7)
+      doc.setFontSize(9)
       doc.setTextColor(150, 150, 150)
-      doc.text('-', colX + 2, tableY + 6)
-      doc.setTextColor(0, 0, 0)
+      doc.text('No color specified', infoX, infoY)
     }
 
-    // Engravings column
-    colX += colWidths[1]
+    // === RIGHT SECTION: Quantity & Engravings ===
+    const rightX = startX + cardWidth - 55
+    let rightY = cardY + 6
+
+    // Quantity (large, prominent)
+    doc.setFontSize(20)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(40, 0, 3)  // Maroon
+    doc.text(`${item.quantity}`, rightX + 25, rightY + 2, { align: 'center' })
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(100, 100, 100)
+    doc.text(item.product.unit, rightX + 25, rightY + 8, { align: 'center' })
+    rightY += 14
+
+    // Engravings section
     if (engravings.length > 0) {
-      let engY = tableY + 2
+      doc.setFontSize(8)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(60, 60, 60)
+      doc.text('Engravings:', rightX, rightY)
+      rightY += 5
+
       for (const eng of engravings) {
         const engArt = eng.engravingArt
         if (!engArt) continue
 
-        // Draw engraving image if available
+        // Engraving image
         if (engArt.imageUrl && engravingImages.has(engArt.imageUrl)) {
           const imgData = engravingImages.get(engArt.imageUrl)
           if (imgData) {
@@ -334,51 +388,44 @@ export async function GET(
               doc.addImage(
                 `data:image/${imgData.format.toLowerCase()};base64,${imgData.base64}`,
                 imgData.format,
-                colX + 2,
-                engY,
+                rightX,
+                rightY,
                 engravingImageSize,
                 engravingImageSize
               )
-              // Draw border around image
               doc.setDrawColor(200, 200, 200)
-              doc.rect(colX + 2, engY, engravingImageSize, engravingImageSize, 'S')
+              doc.rect(rightX, rightY, engravingImageSize, engravingImageSize, 'S')
             } catch {
-              // Silently fail if image can't be added
+              // Skip if can't add
             }
           }
         }
 
         // Engraving name and position
-        doc.setFontSize(6)
+        doc.setFontSize(7)
         doc.setFont('helvetica', 'bold')
-        doc.text(engArt.name, colX + engravingImageSize + 4, engY + 4, { maxWidth: colWidths[2] - engravingImageSize - 6 })
+        doc.setTextColor(0, 0, 0)
+        doc.text(engArt.name, rightX + engravingImageSize + 2, rightY + 6, { maxWidth: 30 })
         doc.setFont('helvetica', 'normal')
         doc.setTextColor(100, 100, 100)
-        doc.text(engArt.position, colX + engravingImageSize + 4, engY + 8, { maxWidth: colWidths[2] - engravingImageSize - 6 })
-        doc.setTextColor(0, 0, 0)
+        doc.text(engArt.position, rightX + engravingImageSize + 2, rightY + 11, { maxWidth: 30 })
 
-        engY += 12
+        rightY += engravingImageSize + 3
       }
-    } else {
-      doc.setFontSize(7)
-      doc.setTextColor(150, 150, 150)
-      doc.text('-', colX + 2, tableY + 6)
-      doc.setTextColor(0, 0, 0)
     }
 
-    // Quantity column
-    colX += colWidths[2]
+    // Item number badge in top-left corner
+    doc.setFillColor(40, 0, 3)  // Maroon
+    doc.circle(startX + 8, cardY + 8, 5, 'F')
     doc.setFontSize(8)
-    doc.text(`${item.quantity}`, colX + 2, tableY + 6)
-    doc.setFontSize(6)
-    doc.setTextColor(100, 100, 100)
-    doc.text(item.product.unit, colX + 2, tableY + 10)
-    doc.setTextColor(0, 0, 0)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(255, 255, 255)
+    doc.text(`${itemIndex + 1}`, startX + 8, cardY + 10, { align: 'center' })
 
-    tableY += rowHeight
-    doc.setDrawColor(200, 200, 200)
-    doc.line(startX, tableY - 2, pageWidth - 20, tableY - 2)
+    cardY += cardHeight + 5
   }
+
+  let tableY = cardY
 
   // Notes
   if (po.notes) {
