@@ -44,7 +44,8 @@ interface ParsedPO {
 }
 
 function parseCaribouCSV(csvText: string): ParsedPO {
-  const lines = csvText.split('\n')
+  // Use multi-line aware CSV parser
+  const rows = parseCSVLines(csvText)
 
   const result: ParsedPO = {
     poNumber: null,
@@ -70,15 +71,20 @@ function parseCaribouCSV(csvText: string): ParsedPO {
     return -1
   }
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-    // Parse CSV properly handling quoted fields
-    const values = parseCSVLine(line)
+  // Helper to clean multi-line cell values - take first line for color name
+  function cleanColorName(val: string): string {
+    // Take first line, remove asterisks and extra notes
+    const firstLine = val.split('\n')[0].trim()
+    return firstLine.replace(/^\*+|\*+$/g, '').trim()
+  }
+
+  for (let i = 0; i < rows.length; i++) {
+    const values = rows[i]
 
     // Look for PO number in early rows - check various formats
-    if (i < 10) {
+    if (i < 15) {
       for (let j = 0; j < values.length; j++) {
-        const val = values[j].trim()
+        const val = values[j]?.trim() || ''
         const lowerVal = val.toLowerCase()
 
         // Check for PO number patterns
@@ -111,7 +117,7 @@ function parseCaribouCSV(csvText: string): ParsedPO {
     }
 
     // Find header row - look for columns that indicate product data
-    const lowerValues = values.map(v => v.toLowerCase().trim())
+    const lowerValues = values.map(v => (v || '').toLowerCase().trim())
     if (headerRowIndex === -1) {
       // Look for color column (required)
       const hasColor = findColumnIndex(lowerValues, ['color', 'colour', 'colorway']) !== -1
@@ -140,22 +146,24 @@ function parseCaribouCSV(csvText: string): ParsedPO {
     if (i === headerRowIndex) continue
 
     // Parse data rows
-    const productVal = values[productIdx]?.trim() || ''
-    const colorVal = values[colorIdx]?.trim() || ''
-    const qtyVal = values[qtyIdx]?.trim() || ''
-    const notesVal = notesIdx >= 0 ? values[notesIdx]?.trim() || '' : ''
-    const rimColorVal = rimColorIdx >= 0 ? values[rimColorIdx]?.trim() || '' : ''
+    const productVal = (values[productIdx] || '').trim()
+    const rawColorVal = (values[colorIdx] || '').trim()
+    const colorVal = cleanColorName(rawColorVal)
+    const qtyVal = (values[qtyIdx] || '').trim()
+    const notesVal = notesIdx >= 0 ? (values[notesIdx] || '').trim() : ''
+    const rimColorVal = rimColorIdx >= 0 ? (values[rimColorIdx] || '').trim() : ''
 
-    // Skip empty rows or total/summary rows
+    // Skip total/summary rows but DON'T stop processing - there may be more items after
     const lowerProduct = productVal.toLowerCase()
     const lowerColor = colorVal.toLowerCase()
     if (lowerProduct.includes('total') || lowerColor.includes('total') ||
         lowerProduct.includes('subtotal') || lowerColor.includes('subtotal') ||
-        lowerProduct.includes('grand total') || lowerColor.includes('grand total')) {
+        lowerProduct.includes('grand total') || lowerColor.includes('grand total') ||
+        lowerProduct === 'engraving:' || lowerProduct === 'engraving') {
       continue
     }
 
-    // Skip if no quantity
+    // Skip if no quantity or quantity is 0
     if (qtyVal === '') continue
 
     // Parse quantity - handle various formats like "50", "50 pcs", etc.
@@ -193,33 +201,53 @@ function parseCaribouCSV(csvText: string): ParsedPO {
   return result
 }
 
-// Parse a CSV line handling quoted fields
-function parseCSVLine(line: string): string[] {
-  const result: string[] = []
-  let current = ''
+// Parse CSV text handling multi-line quoted fields
+function parseCSVLines(csvText: string): string[][] {
+  const rows: string[][] = []
+  let currentRow: string[] = []
+  let currentCell = ''
   let inQuotes = false
 
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i]
+  for (let i = 0; i < csvText.length; i++) {
+    const char = csvText[i]
+    const nextChar = csvText[i + 1]
 
     if (char === '"') {
-      if (inQuotes && line[i + 1] === '"') {
+      if (inQuotes && nextChar === '"') {
         // Escaped quote
-        current += '"'
+        currentCell += '"'
         i++
       } else {
         inQuotes = !inQuotes
       }
     } else if (char === ',' && !inQuotes) {
-      result.push(current)
-      current = ''
+      currentRow.push(currentCell)
+      currentCell = ''
+    } else if ((char === '\n' || (char === '\r' && nextChar === '\n')) && !inQuotes) {
+      // End of row (not inside quotes)
+      currentRow.push(currentCell)
+      rows.push(currentRow)
+      currentRow = []
+      currentCell = ''
+      if (char === '\r') i++ // Skip \n in \r\n
+    } else if (char === '\r' && !inQuotes) {
+      // Standalone \r as line ending
+      currentRow.push(currentCell)
+      rows.push(currentRow)
+      currentRow = []
+      currentCell = ''
     } else {
-      current += char
+      currentCell += char
     }
   }
-  result.push(current)
 
-  return result
+  // Don't forget the last cell/row
+  if (currentCell || currentRow.length > 0) {
+    currentRow.push(currentCell)
+    rows.push(currentRow)
+  }
+
+  return rows
 }
 
 export async function POST(request: NextRequest) {
