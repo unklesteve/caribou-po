@@ -39,6 +39,7 @@ interface ParsedPO {
     color: string
     quantity: number
     notes: string
+    rimColor?: string
   }[]
 }
 
@@ -57,6 +58,7 @@ function parseCaribouCSV(csvText: string): ParsedPO {
   let colorIdx = -1
   let qtyIdx = -1
   let notesIdx = -1
+  let rimColorIdx = -1
   let currentProduct = ''
 
   for (let i = 0; i < lines.length; i++) {
@@ -68,13 +70,14 @@ function parseCaribouCSV(csvText: string): ParsedPO {
     if (i < 5) {
       for (let j = 0; j < values.length; j++) {
         const val = values[j].trim()
-        if (val.startsWith('PO:')) {
-          // PO number might be in same cell or next cell
+        if (val === 'PO:' && values[j + 1]) {
+          // PO number is in next cell
+          result.poNumber = values[j + 1].trim()
+        } else if (val.startsWith('PO:')) {
+          // PO number might be in same cell
           const poMatch = val.match(/PO:\s*(.+)/)
           if (poMatch && poMatch[1]) {
             result.poNumber = poMatch[1].trim()
-          } else if (values[j + 1]) {
-            result.poNumber = values[j + 1].trim()
           }
         }
         if (val.startsWith('Date:')) {
@@ -90,15 +93,18 @@ function parseCaribouCSV(csvText: string): ParsedPO {
       }
     }
 
-    // Find header row (contains "Product" and "QTY")
+    // Find header row - look for "Color" and "QTY" columns
     const lowerValues = values.map(v => v.toLowerCase().trim())
     if (headerRowIndex === -1) {
-      if (lowerValues.includes('product') && (lowerValues.includes('qty') || lowerValues.includes('quantity'))) {
+      // New format: first column is product name (no header), has "Color" and "QTY"
+      if (lowerValues.includes('color') && (lowerValues.includes('qty') || lowerValues.includes('quantity'))) {
         headerRowIndex = i
-        productIdx = lowerValues.indexOf('product')
+        // Product is in first column (index 0) - may not have a "Product" header
+        productIdx = lowerValues.includes('product') ? lowerValues.indexOf('product') : 0
         colorIdx = lowerValues.indexOf('color')
         qtyIdx = lowerValues.includes('qty') ? lowerValues.indexOf('qty') : lowerValues.indexOf('quantity')
         notesIdx = lowerValues.indexOf('notes')
+        rimColorIdx = lowerValues.indexOf('rim color')
         continue
       }
     }
@@ -114,6 +120,7 @@ function parseCaribouCSV(csvText: string): ParsedPO {
     const colorVal = values[colorIdx]?.trim() || ''
     const qtyVal = values[qtyIdx]?.trim() || ''
     const notesVal = notesIdx >= 0 ? values[notesIdx]?.trim() || '' : ''
+    const rimColorVal = rimColorIdx >= 0 ? values[rimColorIdx]?.trim() || '' : ''
 
     // Skip empty rows or total row
     if (qtyVal.toLowerCase() === '' || productVal.toLowerCase() === 'total:' || colorVal.toLowerCase() === 'total:') {
@@ -146,6 +153,7 @@ function parseCaribouCSV(csvText: string): ParsedPO {
       color: colorVal,
       quantity,
       notes: notesVal,
+      rimColor: rimColorVal,
     })
   }
 
@@ -228,6 +236,7 @@ export async function POST(request: NextRequest) {
     const lineItemsData: {
       productId: string
       colorId: string | null
+      ringColor: string | null
       quantity: number
     }[] = []
 
@@ -283,6 +292,7 @@ export async function POST(request: NextRequest) {
       lineItemsData.push({
         productId: product.id,
         colorId,
+        ringColor: item.rimColor || null,
         quantity: item.quantity,
       })
     }
