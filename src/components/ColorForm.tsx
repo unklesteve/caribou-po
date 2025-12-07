@@ -143,14 +143,22 @@ export function ColorForm({ initialData }: ColorFormProps) {
     const url = isEditing ? `/api/colors/${initialData.id}` : '/api/colors'
     const method = isEditing ? 'PUT' : 'POST'
 
-    await fetch(url, {
+    const res = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(formData),
     })
 
-    router.push('/colors')
-    router.refresh()
+    if (isEditing) {
+      // Stay on page for continued editing
+      setSaving(false)
+      router.refresh()
+    } else {
+      // Redirect to the new color's edit page
+      const data = await res.json()
+      router.push(`/colors/${data.id}/edit`)
+      router.refresh()
+    }
   }
 
   function handleChange(
