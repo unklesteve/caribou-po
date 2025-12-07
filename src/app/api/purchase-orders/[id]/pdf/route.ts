@@ -180,6 +180,18 @@ export async function GET(
 
   y += 15
 
+  // Production Notes (before line items for factory visibility)
+  if (po.notes) {
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Production Notes:', 20, y)
+    doc.setFont('helvetica', 'normal')
+    y += 5
+    const noteLines = doc.splitTextToSize(po.notes, pageWidth - 40)
+    doc.text(noteLines, 20, y)
+    y += noteLines.length * 5 + 10
+  }
+
   // Line items - card-based layout for factory readability
   const startX = 20
   const cardWidth = pageWidth - 40
@@ -460,26 +472,6 @@ export async function GET(
 
     cardY += cardHeight + 5
   }
-
-  let tableY = cardY
-
-  // Notes
-  if (po.notes) {
-    tableY += 20
-    doc.setFontSize(10)
-    doc.setFont('helvetica', 'bold')
-    doc.text('Notes:', 20, tableY)
-    doc.setFont('helvetica', 'normal')
-    tableY += 6
-    doc.text(po.notes, 20, tableY, { maxWidth: pageWidth - 40 })
-  }
-
-  // Footer
-  const footerY = doc.internal.pageSize.getHeight() - 20
-  doc.setFontSize(8)
-  doc.setTextColor(128, 128, 128)
-  doc.text('Thank you for your business!', pageWidth / 2, footerY, { align: 'center' })
-  doc.text('Caribou Lodge Yo-Yo Company', pageWidth / 2, footerY + 5, { align: 'center' })
 
   // Generate PDF buffer
   const pdfBuffer = Buffer.from(doc.output('arraybuffer'))
