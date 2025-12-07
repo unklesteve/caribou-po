@@ -1,8 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { NextResponse } from 'next/server'
-import { writeFile, mkdir } from 'fs/promises'
-import { existsSync } from 'fs'
-import path from 'path'
+import { put } from '@vercel/blob'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -39,13 +37,7 @@ async function downloadImage(url: string, filename: string): Promise<string | nu
     const safeFilename = filename
       .replace(/[^a-zA-Z0-9-_]/g, '-')
       .substring(0, 50)
-    const finalFilename = `${safeFilename}-${Date.now()}.png`
-
-    // Ensure directory exists
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'colors')
-    if (!existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true })
-    }
+    const finalFilename = `colors/${safeFilename}-${Date.now()}.png`
 
     // Process image with sharp - high quality settings
     const outputBuffer = await sharp(inputBuffer)
@@ -59,10 +51,13 @@ async function downloadImage(url: string, filename: string): Promise<string | nu
       })
       .toBuffer()
 
-    const filepath = path.join(uploadDir, finalFilename)
-    await writeFile(filepath, outputBuffer)
+    // Upload to Vercel Blob
+    const blob = await put(finalFilename, outputBuffer, {
+      access: 'public',
+      contentType: 'image/png',
+    })
 
-    return `/uploads/colors/${finalFilename}`
+    return blob.url
   } catch (error) {
     console.error(`Failed to download ${url}:`, error)
     return null
