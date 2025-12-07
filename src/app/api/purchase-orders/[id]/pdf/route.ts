@@ -199,35 +199,47 @@ export async function GET(
     const colorDescription = item.color?.description || ''
 
     // Calculate card height based on content
-    // Base: product name (5) + SKU (6) + color name (5) = 16, plus padding
-    let leftContentHeight = 20
+    // Trace through actual Y positions used in rendering:
+    // Start at cardY + 6, then:
+    // - Product name: +5
+    // - SKU: +6
+    // - Color name: +5 (if hasColor)
+    // - Tags: +6 (if tags)
+    // - Rim color: +5 (if steel)
+    // - Description: +2 spacing + lines*4
+    // - Pantone: +2 spacing + 8 chip + 5 for code text below
 
-    // Add height for tags
-    if (colorTags.length > 0) {
-      leftContentHeight += 6
+    let leftContentHeight = 6 + 5 + 6  // Initial offset + product + SKU
+
+    if (hasColor) {
+      leftContentHeight += 5  // Color name
+
+      if (colorTags.length > 0) {
+        leftContentHeight += 6
+      }
+
+      if (hasSteelRim) {
+        leftContentHeight += 5
+      }
+
+      if (colorDescription) {
+        const descLines = Math.min(3, Math.ceil(colorDescription.length / 50))
+        leftContentHeight += descLines * 4 + 2
+      }
+
+      if (pantoneChips.length > 0) {
+        leftContentHeight += 2 + 8 + 5  // spacing + chip height + code text
+      }
     }
 
-    // Add height for rim color if present
-    if (hasSteelRim) {
-      leftContentHeight += 5
-    }
-
-    // Add height for description (estimate ~4pt per line, max 50 chars per line)
-    if (colorDescription) {
-      const descLines = Math.min(3, Math.ceil(colorDescription.length / 50))
-      leftContentHeight += descLines * 4 + 2
-    }
-
-    // Add height for Pantone chips (always need space if present)
-    if (pantoneChips.length > 0) {
-      leftContentHeight += 15  // chip height (8) + code text (3) + spacing (4)
-    }
+    // Add bottom padding
+    leftContentHeight += 4
 
     // Calculate right side height for engravings
     // Each engraving needs: image height (18) + spacing (4) = 22
     const engravingsHeight = engravings.length > 0
-      ? 14 + 5 + (engravings.length * 22)  // qty display + label + engravings
-      : 14  // Just quantity display
+      ? 14 + 5 + (engravings.length * 22) + 4  // qty display + label + engravings + padding
+      : 14 + 4  // Just quantity display + padding
 
     // Card height is the max of left content, right content, or color image height
     const cardHeight = Math.max(leftContentHeight, engravingsHeight, colorImageSize + 10)
