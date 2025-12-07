@@ -97,9 +97,12 @@ export default function SuppliersPage() {
               {suppliers.map((supplier) => (
                 <tr key={supplier.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-medium text-gray-900">
+                    <Link
+                      href={`/suppliers/${supplier.id}/edit`}
+                      className="font-medium text-gray-900 hover:text-maroon-800"
+                    >
                       {supplier.name}
-                    </div>
+                    </Link>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-gray-500">
                     {supplier.email || '-'}

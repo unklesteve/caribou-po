@@ -106,9 +106,11 @@ export default function ProductsPage() {
                 )}
               </div>
               <div className="p-3">
-                <h3 className="font-medium text-gray-900 text-sm truncate">
-                  {product.name}
-                </h3>
+                <Link href={`/products/${product.id}/edit`}>
+                  <h3 className="font-medium text-gray-900 text-sm truncate hover:text-maroon-800 cursor-pointer">
+                    {product.name}
+                  </h3>
+                </Link>
                 <p className="text-xs text-gray-500 font-mono">{product.sku}</p>
                 {product.category && (
                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 mt-1 inline-block">

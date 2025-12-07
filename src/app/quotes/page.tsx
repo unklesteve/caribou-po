@@ -477,11 +477,16 @@ export default function QuotesPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {quotes.map((quote) => (
                 <tr key={quote.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {formatDate(quote.quoteDate)}
-                    {quote.quoteNumber && (
-                      <span className="text-xs text-gray-500 ml-2">#{quote.quoteNumber}</span>
-                    )}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <Link
+                      href={`/quotes/${quote.id}`}
+                      className="text-gray-900 hover:text-maroon-800 font-medium"
+                    >
+                      {formatDate(quote.quoteDate)}
+                      {quote.quoteNumber && (
+                        <span className="text-xs text-gray-500 ml-2">#{quote.quoteNumber}</span>
+                      )}
+                    </Link>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
