@@ -2,34 +2,50 @@ import { PrismaClient } from '@prisma/client'
 import { PrismaLibSQL } from '@prisma/adapter-libsql'
 import { createClient } from '@libsql/client'
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined
+declare global {
+  // eslint-disable-next-line no-var
+  var __prisma: PrismaClient | undefined
 }
 
 function createPrismaClient(): PrismaClient {
-  // Try multiple ways to access the env vars
-  const tursoUrl = process.env.TURSO_DATABASE_URL
-    || process.env.NEXT_PUBLIC_TURSO_DATABASE_URL
-    || 'libsql://caribou-po-unklesteve.aws-us-east-2.turso.io'
+  // Read env vars at runtime, not at import time
+  const tursoUrl = process.env['TURSO_DATABASE_URL']
+  const tursoToken = process.env['TURSO_AUTH_TOKEN']
 
-  const tursoToken = process.env.TURSO_AUTH_TOKEN
-    || process.env.NEXT_PUBLIC_TURSO_AUTH_TOKEN
-    || 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NjUxMjE3NDIsImlkIjoiZWJlMDc3ODMtNjViOS00M2M2LWEyODgtYWQwNDlhYjQyNDlkIiwicmlkIjoiNjljMWQyMzYtOWE5MS00NWE3LTk2ZmMtMmU2MmViMmJlNDNlIn0.737EYWRmmODxVLo1tCYggLj6BrAZ0Tb8mRVw1BjfGF0NGWJ2mGyhxRGkEsqoPqe3I5j9MUOlhDNj-akdvJBNBg'
+  // Use Turso if configured
+  if (tursoUrl && tursoToken) {
+    const libsql = createClient({
+      url: tursoUrl,
+      authToken: tursoToken,
+    })
+    const adapter = new PrismaLibSQL(libsql)
+    return new PrismaClient({ adapter })
+  }
 
+  // Fallback with hardcoded values for Vercel (env vars not working)
   const libsql = createClient({
-    url: tursoUrl,
-    authToken: tursoToken,
+    url: 'libsql://caribou-po-unklesteve.aws-us-east-2.turso.io',
+    authToken: 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NjUxMjE3NDIsImlkIjoiZWJlMDc3ODMtNjViOS00M2M2LWEyODgtYWQwNDlhYjQyNDlkIiwicmlkIjoiNjljMWQyMzYtOWE5MS00NWE3LTk2ZmMtMmU2MmViMmJlNDNlIn0.737EYWRmmODxVLo1tCYggLj6BrAZ0Tb8mRVw1BjfGF0NGWJ2mGyhxRGkEsqoPqe3I5j9MUOlhDNj-akdvJBNBg',
   })
   const adapter = new PrismaLibSQL(libsql)
   return new PrismaClient({ adapter })
 }
 
-// Use a getter to lazily initialize the client at runtime, not build time
+function getPrisma(): PrismaClient {
+  if (!global.__prisma) {
+    global.__prisma = createPrismaClient()
+  }
+  return global.__prisma
+}
+
+// Lazy initialization using getter
 export const prisma = new Proxy({} as PrismaClient, {
-  get(target, prop) {
-    if (!globalForPrisma.prisma) {
-      globalForPrisma.prisma = createPrismaClient()
+  get(_target, prop: string | symbol) {
+    const client = getPrisma()
+    const value = Reflect.get(client, prop)
+    if (typeof value === 'function') {
+      return value.bind(client)
     }
-    return Reflect.get(globalForPrisma.prisma, prop)
+    return value
   },
 })
