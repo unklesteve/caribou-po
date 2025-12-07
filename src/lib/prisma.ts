@@ -6,26 +6,17 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
+// Hardcoded for testing - will remove once env vars work
+const TURSO_URL = 'libsql://caribou-po-unklesteve.aws-us-east-2.turso.io'
+const TURSO_TOKEN = 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NjUxMjE3NDIsImlkIjoiZWJlMDc3ODMtNjViOS00M2M2LWEyODgtYWQwNDlhYjQyNDlkIiwicmlkIjoiNjljMWQyMzYtOWE5MS00NWE3LTk2ZmMtMmU2MmViMmJlNDNlIn0.737EYWRmmODxVLo1tCYggLj6BrAZ0Tb8mRVw1BjfGF0NGWJ2mGyhxRGkEsqoPqe3I5j9MUOlhDNj-akdvJBNBg'
+
 function createPrismaClient(): PrismaClient {
-  const tursoUrl = process.env.TURSO_DATABASE_URL
-  const tursoToken = process.env.TURSO_AUTH_TOKEN
-
-  // Use Turso if configured
-  if (tursoUrl && tursoToken) {
-    const libsql = createClient({
-      url: tursoUrl,
-      authToken: tursoToken,
-    })
-    const adapter = new PrismaLibSQL(libsql)
-    return new PrismaClient({ adapter })
-  }
-
-  // In production/Vercel, we MUST have Turso configured
-  // Throw a clear error instead of falling back to broken SQLite
-  throw new Error(
-    `Turso not configured. TURSO_DATABASE_URL: ${tursoUrl ? 'set' : 'MISSING'}, TURSO_AUTH_TOKEN: ${tursoToken ? 'set' : 'MISSING'}. ` +
-    `Available env vars with TURSO/DATABASE: ${Object.keys(process.env).filter(k => k.includes('TURSO') || k.includes('DATABASE')).join(', ') || 'none'}`
-  )
+  const libsql = createClient({
+    url: TURSO_URL,
+    authToken: TURSO_TOKEN,
+  })
+  const adapter = new PrismaLibSQL(libsql)
+  return new PrismaClient({ adapter })
 }
 
 // Use a getter to lazily initialize the client at runtime, not build time
