@@ -1,0 +1,38 @@
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+
+// Basic Auth credentials - change these!
+const VALID_USERNAME = process.env.BASIC_AUTH_USER || 'caribou'
+const VALID_PASSWORD = process.env.BASIC_AUTH_PASSWORD || 'lodge2024'
+
+export function middleware(request: NextRequest) {
+  const authHeader = request.headers.get('authorization')
+
+  if (authHeader) {
+    const authValue = authHeader.split(' ')[1]
+    const [user, pwd] = atob(authValue).split(':')
+
+    if (user === VALID_USERNAME && pwd === VALID_PASSWORD) {
+      return NextResponse.next()
+    }
+  }
+
+  return new NextResponse('Authentication required', {
+    status: 401,
+    headers: {
+      'WWW-Authenticate': 'Basic realm="Caribou Lodge PO Manager"',
+    },
+  })
+}
+
+export const config = {
+  matcher: [
+    /*
+     * Match all request paths except:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    '/((?!_next/static|_next/image|favicon.ico).*)',
+  ],
+}
