@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState, useCallback } from 'react'
+import { useParams, useRouter } from 'next/navigation'
 import { SuccessMessage } from '@/components/SuccessMessage'
 
 interface Product {
@@ -29,52 +30,84 @@ interface Quote {
   totalCost: number | null
   shippingCost: number | null
   notes: string | null
-  supplier: { name: string } | null
+  supplierId: string | null
+  supplier: { id: string; name: string } | null
   lineItems: QuoteLineItem[]
 }
 
-export default function QuotesPage() {
-  const [quotes, setQuotes] = useState<Quote[]>([])
+export default function QuoteEditPage() {
+  const params = useParams()
+  const router = useRouter()
+  const quoteId = params.id as string
+
+  const [quote, setQuote] = useState<Quote | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([])
   const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   const [formData, setFormData] = useState({
     quoteNumber: '',
-    quoteDate: new Date().toISOString().split('T')[0],
+    quoteDate: '',
     quoteType: 'production',
     supplierId: '',
     pdfUrl: '',
-    totalCost: '',
     shippingCost: '',
     notes: '',
   })
 
   const [lineItems, setLineItems] = useState<{
+    id?: string
     productId: string
     quantity: string
     unitCost: string
     totalCost: string
     notes: string
-  }[]>([{ productId: '', quantity: '', unitCost: '', totalCost: '', notes: '' }])
+  }[]>([])
 
   const clearSuccessMessage = useCallback(() => setSuccessMessage(null), [])
 
   useEffect(() => {
-    fetchQuotes()
+    fetchQuote()
     fetchProducts()
     fetchSuppliers()
-  }, [])
+  }, [quoteId])
 
-  async function fetchQuotes() {
+  async function fetchQuote() {
     setLoading(true)
-    const res = await fetch('/api/quotes')
-    const data = await res.json()
-    setQuotes(data)
+    try {
+      const res = await fetch(`/api/quotes/${quoteId}`)
+      if (!res.ok) {
+        router.push('/quotes')
+        return
+      }
+      const data: Quote = await res.json()
+      setQuote(data)
+      setFormData({
+        quoteNumber: data.quoteNumber || '',
+        quoteDate: data.quoteDate.split('T')[0],
+        quoteType: data.quoteType,
+        supplierId: data.supplierId || '',
+        pdfUrl: data.pdfUrl || '',
+        shippingCost: data.shippingCost?.toString() || '',
+        notes: data.notes || '',
+      })
+      setLineItems(
+        data.lineItems.map((item) => ({
+          id: item.id,
+          productId: item.productId,
+          quantity: item.quantity.toString(),
+          unitCost: item.unitCost.toString(),
+          totalCost: item.totalCost.toString(),
+          notes: item.notes || '',
+        }))
+      )
+    } catch (error) {
+      console.error('Error fetching quote:', error)
+      router.push('/quotes')
+    }
     setLoading(false)
   }
 
@@ -156,12 +189,13 @@ export default function QuotesPage() {
     setSaving(true)
 
     try {
-      const res = await fetch('/api/quotes', {
-        method: 'POST',
+      const res = await fetch(`/api/quotes/${quoteId}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
           lineItems: validLineItems.map(item => ({
+            id: item.id,
             productId: item.productId,
             quantity: parseInt(item.quantity),
             unitCost: parseFloat(item.unitCost),
@@ -172,20 +206,8 @@ export default function QuotesPage() {
       })
 
       if (res.ok) {
-        setSuccessMessage('Quote saved successfully!')
-        setFormData({
-          quoteNumber: '',
-          quoteDate: new Date().toISOString().split('T')[0],
-          quoteType: 'production',
-          supplierId: '',
-          pdfUrl: '',
-          totalCost: '',
-          shippingCost: '',
-          notes: '',
-        })
-        setLineItems([{ productId: '', quantity: '', unitCost: '', totalCost: '', notes: '' }])
-        setShowForm(false)
-        fetchQuotes()
+        setSuccessMessage('Quote updated successfully!')
+        fetchQuote() // Refresh data
       } else {
         const data = await res.json()
         alert(`Error: ${data.error}`)
@@ -197,48 +219,69 @@ export default function QuotesPage() {
     setSaving(false)
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm('Are you sure you want to delete this quote?')) return
-    await fetch(`/api/quotes/${id}`, { method: 'DELETE' })
-    setSuccessMessage('Quote deleted successfully!')
-    fetchQuotes()
-  }
-
-  function formatCurrency(amount: number | null) {
-    if (amount === null) return '-'
+  function formatCurrency(amount: number) {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
     }).format(amount)
   }
 
-  function formatDate(dateString: string) {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
+          <div className="h-64 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    )
   }
 
+  if (!quote) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <p className="text-gray-500">Quote not found</p>
+        <Link href="/quotes" className="text-maroon-800 hover:text-maroon-900">
+          Back to quotes
+        </Link>
+      </div>
+    )
+  }
+
+  const calculatedTotal = lineItems.reduce((sum, item) => {
+    const total = parseFloat(item.totalCost) || 0
+    return sum + total
+  }, 0)
+
+  const grandTotal = calculatedTotal + (parseFloat(formData.shippingCost) || 0)
+
   return (
-    <div>
+    <div className="max-w-4xl mx-auto px-4 py-8">
       <SuccessMessage message={successMessage} onClear={clearSuccessMessage} />
 
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Factory Quotes</h1>
+        <div>
+          <Link href="/quotes" className="text-sm text-gray-500 hover:text-gray-700 mb-1 inline-block">
+            &larr; Back to Quotes
+          </Link>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Edit Quote {quote.quoteNumber ? `#${quote.quoteNumber}` : ''}
+          </h1>
+        </div>
         <button
-          onClick={() => setShowForm(!showForm)}
-          className="bg-maroon-800 hover:bg-maroon-900 text-white px-4 py-2 rounded-md font-medium transition-colors"
+          onClick={handleSubmit}
+          disabled={saving}
+          className="px-4 py-2 bg-maroon-800 hover:bg-maroon-900 text-white rounded-md font-medium transition-colors disabled:opacity-50"
         >
-          {showForm ? 'Cancel' : 'Add Quote'}
+          {saving ? 'Saving...' : 'Save Changes'}
         </button>
       </div>
 
-      {showForm && (
-        <form onSubmit={handleSubmit} className="bg-white shadow rounded-lg p-6 mb-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">New Quote</h2>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="bg-white shadow rounded-lg p-6">
+          <h2 className="text-lg font-medium text-gray-900 mb-4">Quote Details</h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Quote Number
@@ -338,7 +381,7 @@ export default function QuotesPage() {
             </div>
           </div>
 
-          <div className="mb-4">
+          <div className="mt-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Notes
             </label>
@@ -349,23 +392,25 @@ export default function QuotesPage() {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600"
             />
           </div>
+        </div>
 
-          <div className="mb-4">
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="text-sm font-medium text-gray-900">Products</h3>
-              <button
-                type="button"
-                onClick={addLineItem}
-                className="text-sm text-blue-600 hover:text-blue-800"
-              >
-                + Add Product
-              </button>
-            </div>
+        <div className="bg-white shadow rounded-lg p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-medium text-gray-900">Products</h2>
+            <button
+              type="button"
+              onClick={addLineItem}
+              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+            >
+              + Add Product
+            </button>
+          </div>
 
+          <div className="space-y-3">
             {lineItems.map((item, index) => (
-              <div key={index} className="grid grid-cols-12 gap-2 mb-2 items-end">
+              <div key={item.id || index} className="grid grid-cols-12 gap-2 items-end p-3 bg-gray-50 rounded-lg">
                 <div className="col-span-4">
-                  {index === 0 && <label className="block text-xs text-gray-500 mb-1">Product *</label>}
+                  <label className="block text-xs text-gray-500 mb-1">Product *</label>
                   <select
                     value={item.productId}
                     onChange={(e) => handleLineItemChange(index, 'productId', e.target.value)}
@@ -378,7 +423,7 @@ export default function QuotesPage() {
                   </select>
                 </div>
                 <div className="col-span-2">
-                  {index === 0 && <label className="block text-xs text-gray-500 mb-1">Qty *</label>}
+                  <label className="block text-xs text-gray-500 mb-1">Qty *</label>
                   <input
                     type="number"
                     min="1"
@@ -389,7 +434,7 @@ export default function QuotesPage() {
                   />
                 </div>
                 <div className="col-span-2">
-                  {index === 0 && <label className="block text-xs text-gray-500 mb-1">Total Cost *</label>}
+                  <label className="block text-xs text-gray-500 mb-1">Total Cost *</label>
                   <input
                     type="number"
                     min="0"
@@ -401,16 +446,16 @@ export default function QuotesPage() {
                   />
                 </div>
                 <div className="col-span-2">
-                  {index === 0 && <label className="block text-xs text-gray-500 mb-1">Unit Cost</label>}
+                  <label className="block text-xs text-gray-500 mb-1">Unit Cost</label>
                   <input
                     type="text"
-                    value={item.unitCost ? `$${item.unitCost}` : ''}
+                    value={item.unitCost ? `$${parseFloat(item.unitCost).toFixed(2)}` : ''}
                     readOnly
                     placeholder="Auto"
-                    className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-md bg-gray-50 text-gray-600"
+                    className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-md bg-gray-100 text-gray-600"
                   />
                 </div>
-                <div className="col-span-2 flex items-center gap-1">
+                <div className="col-span-2 flex items-center justify-end gap-2">
                   {lineItems.length > 1 && (
                     <button
                       type="button"
@@ -425,132 +470,41 @@ export default function QuotesPage() {
             ))}
           </div>
 
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium transition-colors disabled:opacity-50"
-            >
-              {saving ? 'Saving...' : 'Save Quote'}
-            </button>
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="flex justify-end">
+              <div className="text-right">
+                <div className="text-sm text-gray-500">
+                  Subtotal: {formatCurrency(calculatedTotal)}
+                </div>
+                {formData.shippingCost && (
+                  <div className="text-sm text-gray-500">
+                    Shipping: {formatCurrency(parseFloat(formData.shippingCost))}
+                  </div>
+                )}
+                <div className="text-lg font-medium text-gray-900">
+                  Total: {formatCurrency(grandTotal)}
+                </div>
+              </div>
+            </div>
           </div>
-        </form>
-      )}
+        </div>
 
-      {loading ? (
-        <p className="text-gray-500">Loading...</p>
-      ) : quotes.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-lg shadow">
-          <p className="text-gray-500 mb-4">No quotes found</p>
-          <button
-            onClick={() => setShowForm(true)}
-            className="text-maroon-800 hover:text-maroon-900 font-medium"
+        <div className="flex justify-end gap-3">
+          <Link
+            href="/quotes"
+            className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
           >
-            Add your first quote
+            Cancel
+          </Link>
+          <button
+            type="submit"
+            disabled={saving}
+            className="px-4 py-2 bg-maroon-800 hover:bg-maroon-900 text-white rounded-md font-medium transition-colors disabled:opacity-50"
+          >
+            {saving ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
-      ) : (
-        <div className="bg-white shadow rounded-lg overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Type
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Products
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Total
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  PDF
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {quotes.map((quote) => (
-                <tr key={quote.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {formatDate(quote.quoteDate)}
-                    {quote.quoteNumber && (
-                      <span className="text-xs text-gray-500 ml-2">#{quote.quoteNumber}</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        quote.quoteType === 'prototype'
-                          ? 'bg-purple-100 text-purple-800'
-                          : 'bg-blue-100 text-blue-800'
-                      }`}
-                    >
-                      {quote.quoteType}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900">
-                      {quote.lineItems.map((item) => (
-                        <div key={item.id} className="flex items-center gap-2">
-                          <span className="font-medium">{item.product.name}</span>
-                          <span className="text-gray-500">×{item.quantity}</span>
-                          <span className="text-gray-400">@{formatCurrency(item.unitCost)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <div>
-                      {formatCurrency(quote.lineItems.reduce((sum, item) => sum + item.totalCost, 0))}
-                      {quote.shippingCost && (
-                        <span className="text-xs text-gray-500 ml-1">
-                          (+{formatCurrency(quote.shippingCost)} ship)
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {quote.pdfUrl ? (
-                      <a
-                        href={quote.pdfUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 text-sm"
-                      >
-                        View PDF
-                      </a>
-                    ) : (
-                      <span className="text-gray-400 text-sm">-</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex justify-end gap-3">
-                      <Link
-                        href={`/quotes/${quote.id}`}
-                        className="text-maroon-800 hover:text-maroon-900"
-                      >
-                        Edit
-                      </Link>
-                      <button
-                        onClick={() => handleDelete(quote.id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      </form>
     </div>
   )
 }
