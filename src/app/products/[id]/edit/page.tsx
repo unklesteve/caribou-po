@@ -39,6 +39,7 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
     quotes: product.quotes.map(q => ({
       id: q.id,
       quoteDate: q.quoteDate.toISOString(),
+      quoteType: q.quoteType,
       unitPrice: q.unitPrice,
       notes: q.notes,
     })),

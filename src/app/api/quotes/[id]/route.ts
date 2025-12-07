@@ -55,6 +55,8 @@ export async function PUT(
 
     // Create new line items
     if (lineItems && lineItems.length > 0) {
+      const isProduction = (quoteType || 'production') === 'production'
+
       for (const item of lineItems) {
         await prisma.quoteLineItem.create({
           data: {
@@ -67,12 +69,14 @@ export async function PUT(
           },
         })
 
-        // Update product price with calculated unit cost (including shipping)
-        const calculatedUnitCost = (item.totalCost + (shippingCost ? parseFloat(shippingCost) / lineItems.length : 0)) / item.quantity
-        await prisma.product.update({
-          where: { id: item.productId },
-          data: { unitPrice: calculatedUnitCost },
-        })
+        // Only update product price for production quotes
+        if (isProduction) {
+          const calculatedUnitCost = (item.totalCost + (shippingCost ? parseFloat(shippingCost) / lineItems.length : 0)) / item.quantity
+          await prisma.product.update({
+            where: { id: item.productId },
+            data: { unitPrice: calculatedUnitCost },
+          })
+        }
       }
     }
 

@@ -16,6 +16,7 @@ interface EngravingArt {
 interface ProductQuote {
   id: string
   quoteDate: string
+  quoteType: string
   unitPrice: number
   notes: string | null
 }
@@ -348,13 +349,17 @@ export function ProductForm({ initialData }: ProductFormProps) {
     })
   }
 
-  // Calculate price change percentage
-  function getPriceChange() {
-    if (quotes.length < 2) return null
-    const newest = quotes[0].unitPrice
-    const oldest = quotes[quotes.length - 1].unitPrice
-    if (oldest === 0) return null
-    const change = ((newest - oldest) / oldest) * 100
+  // Filter quotes by type
+  const productionQuotes = quotes.filter(q => q.quoteType === 'production')
+  const prototypeQuotes = quotes.filter(q => q.quoteType === 'prototype')
+
+  // Calculate price change percentage between most recent and previous production quote
+  function getProductionPriceChange() {
+    if (productionQuotes.length < 2) return null
+    const newest = productionQuotes[0].unitPrice
+    const previous = productionQuotes[1].unitPrice
+    if (previous === 0) return null
+    const change = ((newest - previous) / previous) * 100
     return change
   }
 
@@ -701,12 +706,12 @@ export function ProductForm({ initialData }: ProductFormProps) {
           <div className="flex justify-between items-center mb-4">
             <div>
               <h2 className="text-lg font-medium text-gray-900">Cost Quote History</h2>
-              {quotes.length > 0 && (
+              {productionQuotes.length > 0 && (
                 <p className="text-sm text-gray-500">
-                  Current cost: {formatCurrency(quotes[0].unitPrice)}
-                  {getPriceChange() !== null && (
-                    <span className={`ml-2 ${getPriceChange()! >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      ({getPriceChange()! >= 0 ? '+' : ''}{getPriceChange()!.toFixed(1)}% from first quote)
+                  Current production cost: {formatCurrency(productionQuotes[0].unitPrice)}
+                  {getProductionPriceChange() !== null && (
+                    <span className={`ml-2 ${getProductionPriceChange()! >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      ({getProductionPriceChange()! >= 0 ? '+' : ''}{getProductionPriceChange()!.toFixed(1)}% from previous)
                     </span>
                   )}
                 </p>
@@ -778,12 +783,12 @@ export function ProductForm({ initialData }: ProductFormProps) {
             </div>
           )}
 
-          {/* Price History Chart */}
-          {quotes.length > 1 && (
+          {/* Price History Chart - Production quotes only */}
+          {productionQuotes.length > 1 && (
             <div className="mb-6">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Cost Trend</h3>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Production Cost Trend</h3>
               <div className="h-32 flex items-end gap-1 bg-gray-50 rounded-lg p-4">
-                {[...quotes].reverse().map((quote, index, arr) => {
+                {[...productionQuotes].reverse().map((quote, index, arr) => {
                   const prices = arr.map(q => q.unitPrice)
                   const maxPrice = Math.max(...prices)
                   const minPrice = Math.min(...prices)
@@ -808,8 +813,8 @@ export function ProductForm({ initialData }: ProductFormProps) {
                 })}
               </div>
               <div className="flex justify-between text-xs text-gray-500 mt-1">
-                <span>{quotes.length > 0 && formatDate(quotes[quotes.length - 1].quoteDate)}</span>
-                <span>{quotes.length > 0 && formatDate(quotes[0].quoteDate)}</span>
+                <span>{productionQuotes.length > 0 && formatDate(productionQuotes[productionQuotes.length - 1].quoteDate)}</span>
+                <span>{productionQuotes.length > 0 && formatDate(productionQuotes[0].quoteDate)}</span>
               </div>
             </div>
           )}
@@ -823,6 +828,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
                     <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Cost</th>
                     <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Change</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Notes</th>
@@ -831,13 +837,31 @@ export function ProductForm({ initialData }: ProductFormProps) {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {quotes.map((quote, index) => {
-                    const prevQuote = quotes[index + 1]
-                    const change = prevQuote ? ((quote.unitPrice - prevQuote.unitPrice) / prevQuote.unitPrice) * 100 : null
+                    // For production quotes, calculate change from previous production quote
+                    // For prototype quotes, don't show change
+                    let change: number | null = null
+                    if (quote.quoteType === 'production') {
+                      const productionIndex = productionQuotes.findIndex(q => q.id === quote.id)
+                      const prevProductionQuote = productionQuotes[productionIndex + 1]
+                      if (prevProductionQuote) {
+                        change = ((quote.unitPrice - prevProductionQuote.unitPrice) / prevProductionQuote.unitPrice) * 100
+                      }
+                    }
+                    const isCurrentProduction = quote.quoteType === 'production' && productionQuotes[0]?.id === quote.id
                     return (
-                      <tr key={quote.id} className={index === 0 ? 'bg-maroon-50' : ''}>
+                      <tr key={quote.id} className={isCurrentProduction ? 'bg-maroon-50' : ''}>
                         <td className="px-4 py-2 text-sm text-gray-900">
                           {formatDate(quote.quoteDate)}
-                          {index === 0 && <span className="ml-2 text-xs text-maroon-600 font-medium">(Current)</span>}
+                          {isCurrentProduction && <span className="ml-2 text-xs text-maroon-600 font-medium">(Current)</span>}
+                        </td>
+                        <td className="px-4 py-2">
+                          <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                            quote.quoteType === 'prototype'
+                              ? 'bg-purple-100 text-purple-800'
+                              : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {quote.quoteType}
+                          </span>
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-900 text-right font-medium">
                           {formatCurrency(quote.unitPrice)}
