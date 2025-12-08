@@ -533,17 +533,48 @@ export function ProductForm({ initialData }: ProductFormProps) {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Material
             </label>
-            <select
-              name="material"
-              value={formData.material}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600"
-            >
-              <option value="">Select material</option>
-              {MATERIALS.map((mat) => (
-                <option key={mat} value={mat}>{mat}</option>
-              ))}
-            </select>
+            <div className="flex gap-2">
+              <select
+                value={MATERIALS.includes(formData.material) ? formData.material : '_custom'}
+                onChange={(e) => {
+                  if (e.target.value === '_custom') {
+                    // Keep current custom value or clear
+                    if (MATERIALS.includes(formData.material)) {
+                      setFormData({ ...formData, material: '' })
+                    }
+                  } else {
+                    setFormData({ ...formData, material: e.target.value })
+                  }
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600"
+              >
+                <option value="">Select material</option>
+                {MATERIALS.map((mat) => (
+                  <option key={mat} value={mat}>{mat}</option>
+                ))}
+                <option value="_custom">Other (custom)...</option>
+              </select>
+              {(!MATERIALS.includes(formData.material) && formData.material !== '') && (
+                <input
+                  type="text"
+                  name="material"
+                  value={formData.material}
+                  onChange={handleChange}
+                  placeholder="Enter custom material"
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600"
+                />
+              )}
+            </div>
+            {!MATERIALS.includes(formData.material) && formData.material === '' && (
+              <input
+                type="text"
+                name="material"
+                value={formData.material}
+                onChange={handleChange}
+                placeholder="Enter custom material"
+                className="w-full mt-2 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600"
+              />
+            )}
           </div>
 
           <div className="flex items-center">
