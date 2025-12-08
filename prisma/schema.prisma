@@ -31,18 +31,19 @@ model Supplier {
 }
 
 model Product {
-  id          String   @id @default(cuid())
-  sku         String   @unique
-  name        String
-  description String?
-  imageUrl    String?
-  unitPrice   Float
-  unit        String   @default("each")
-  category    String?
-  material    String?  // "6061 Aluminum", "7075 Aluminum", "6061 Aluminum + Steel", "7075 Aluminum + Steel", "Wood"
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String    @id @default(cuid())
+  sku            String    @unique
+  name           String
+  description    String?
+  imageUrl       String?
+  unitPrice      Float
+  unit           String    @default("each")
+  category       String?
+  material       String?   // "6061 Aluminum", "7075 Aluminum", "6061 Aluminum + Steel", "7075 Aluminum + Steel", "Wood"
+  isActive       Boolean   @default(true)
+  lastReleasedAt DateTime? // When the most recent PO containing this product was released
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   lineItems      LineItem[]
   engravingArt   EngravingArt[]

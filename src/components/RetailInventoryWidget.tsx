@@ -8,6 +8,7 @@ interface RetailInventoryItem {
   productId: string
   productName: string
   productSku: string
+  productLastReleasedAt: string | null
   retailerId: string
   retailerName: string
   totalInventory: number | null
@@ -38,14 +39,21 @@ export function RetailInventoryWidget({ retailInventory }: RetailInventoryWidget
         productId: item.productId,
         productName: item.productName,
         productSku: item.productSku,
+        productLastReleasedAt: item.productLastReleasedAt,
         retailers: [],
       }
     }
     acc[item.productId].retailers.push(item)
     return acc
-  }, {} as Record<string, { productId: string; productName: string; productSku: string; retailers: RetailInventoryItem[] }>)
+  }, {} as Record<string, { productId: string; productName: string; productSku: string; productLastReleasedAt: string | null; retailers: RetailInventoryItem[] }>)
 
-  const products = Object.values(productGroups)
+  // Sort products by most recent release date (newest first), products without release date go to bottom
+  const products = Object.values(productGroups).sort((a, b) => {
+    if (!a.productLastReleasedAt && !b.productLastReleasedAt) return 0
+    if (!a.productLastReleasedAt) return 1
+    if (!b.productLastReleasedAt) return -1
+    return new Date(b.productLastReleasedAt).getTime() - new Date(a.productLastReleasedAt).getTime()
+  })
 
   async function handleRefreshAll() {
     setRefreshing(true)
@@ -128,7 +136,14 @@ export function RetailInventoryWidget({ retailInventory }: RetailInventoryWidget
                     >
                       {product.productName}
                     </Link>
-                    <p className="text-xs text-gray-500">{product.productSku}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs text-gray-500">{product.productSku}</p>
+                      {product.productLastReleasedAt && (
+                        <span className="text-xs text-green-600">
+                          Released {formatDate(product.productLastReleasedAt)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">

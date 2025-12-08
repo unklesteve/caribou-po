@@ -179,14 +179,12 @@ export default function PurchaseOrderDetailPage({
           </div>
         </div>
         <div className="flex gap-2 items-center">
-          {po.status === 'DRAFT' && (
-            <Link
-              href={`/purchase-orders/${po.id}/edit`}
-              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              Edit
-            </Link>
-          )}
+          <Link
+            href={`/purchase-orders/${po.id}/edit`}
+            className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            Edit
+          </Link>
           <div className="flex items-center gap-2">
             <label className="text-sm text-gray-600">Status:</label>
             <select

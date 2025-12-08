@@ -71,7 +71,7 @@ async function getStats() {
     isActive: boolean
     createdAt: Date
     updatedAt: Date
-    product: { id: string; name: string; sku: string }
+    product: { id: string; name: string; sku: string; lastReleasedAt: Date | null }
     retailer: { id: string; name: string; sortOrder: number }
     snapshots: { totalInventory: number; variantData: string; fetchedAt: Date }[]
   }
@@ -80,7 +80,7 @@ async function getStats() {
     retailInventory = await prisma.retailProduct.findMany({
       where: { isActive: true },
       include: {
-        product: { select: { id: true, name: true, sku: true } },
+        product: { select: { id: true, name: true, sku: true, lastReleasedAt: true } },
         retailer: { select: { id: true, name: true, sortOrder: true } },
         snapshots: {
           orderBy: { fetchedAt: 'desc' },
@@ -401,6 +401,7 @@ export default async function DashboardPage() {
             productId: ri.product.id,
             productName: ri.product.name,
             productSku: ri.product.sku,
+            productLastReleasedAt: ri.product.lastReleasedAt?.toISOString() ?? null,
             retailerId: ri.retailer.id,
             retailerName: ri.retailer.name,
             totalInventory: ri.snapshots[0]?.totalInventory ?? null,

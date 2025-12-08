@@ -50,6 +50,7 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
     category: product.category || '',
     material: product.material || '',
     isActive: product.isActive,
+    lastReleasedAt: product.lastReleasedAt?.toISOString() || null,
     engravingArt: product.engravingArt,
     quotes: product.quotes.map(q => ({
       id: q.id,

@@ -198,15 +198,25 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
       : '/api/purchase-orders'
     const method = isEditing ? 'PUT' : 'POST'
 
-    const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    })
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
 
-    const po = await res.json()
-    router.push(`/purchase-orders/${po.id}`)
-    router.refresh()
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.error || 'Failed to save purchase order')
+      }
+
+      const po = await res.json()
+      router.push(`/purchase-orders/${po.id}`)
+      router.refresh()
+    } catch (error) {
+      setSaving(false)
+      alert(error instanceof Error ? error.message : 'Failed to save purchase order')
+    }
   }
 
   return (
