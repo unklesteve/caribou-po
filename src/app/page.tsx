@@ -62,7 +62,20 @@ async function getStats() {
   ])
 
   // Fetch retail inventory data separately - wrapped in try-catch for resilience
-  let retailInventory: Awaited<ReturnType<typeof prisma.retailProduct.findMany>> = []
+  type RetailInventoryItem = {
+    id: string
+    productId: string
+    retailerId: string
+    productUrl: string
+    productHandle: string | null
+    isActive: boolean
+    createdAt: Date
+    updatedAt: Date
+    product: { id: string; name: string; sku: string }
+    retailer: { id: string; name: string; sortOrder: number }
+    snapshots: { totalInventory: number; variantData: string; fetchedAt: Date }[]
+  }
+  let retailInventory: RetailInventoryItem[] = []
   try {
     retailInventory = await prisma.retailProduct.findMany({
       where: { isActive: true },
@@ -74,7 +87,7 @@ async function getStats() {
           take: 1,
         },
       },
-    })
+    }) as RetailInventoryItem[]
   } catch (e) {
     console.error('Failed to fetch retail inventory:', e)
   }
