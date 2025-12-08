@@ -66,16 +66,12 @@ async function getStats() {
     where: { isActive: true },
     include: {
       product: { select: { id: true, name: true, sku: true } },
-      retailer: { select: { id: true, name: true } },
+      retailer: { select: { id: true, name: true, sortOrder: true } },
       snapshots: {
         orderBy: { fetchedAt: 'desc' },
         take: 1,
       },
     },
-    orderBy: [
-      { product: { name: 'asc' } },
-      { retailer: { sortOrder: 'asc' } },
-    ],
   })
 
   return {
