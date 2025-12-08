@@ -41,6 +41,20 @@ interface Retailer {
   baseUrl: string
 }
 
+interface ProductSupplier {
+  id: string
+  supplierId: string
+  supplierName: string
+  supplierFullName: string
+  isPrimary: boolean
+}
+
+interface Supplier {
+  id: string
+  name: string
+  displayName: string | null
+}
+
 interface ProductFormProps {
   initialData?: {
     id?: string
@@ -58,6 +72,8 @@ interface ProductFormProps {
     quotes?: ProductQuote[]
     retailProducts?: RetailProduct[]
     retailers?: Retailer[]
+    productSuppliers?: ProductSupplier[]
+    allSuppliers?: Supplier[]
   }
 }
 
@@ -114,6 +130,13 @@ export function ProductForm({ initialData }: ProductFormProps) {
   const [newRetailLink, setNewRetailLink] = useState({ retailerId: '', productUrl: '' })
   const [savingRetailLink, setSavingRetailLink] = useState(false)
   const [refreshingInventory, setRefreshingInventory] = useState<string | null>(null)
+
+  // Suppliers state
+  const [productSuppliers, setProductSuppliers] = useState<ProductSupplier[]>(initialData?.productSuppliers || [])
+  const [allSuppliers] = useState<Supplier[]>(initialData?.allSuppliers || [])
+  const [showSupplierForm, setShowSupplierForm] = useState(false)
+  const [newSupplierLink, setNewSupplierLink] = useState({ supplierId: '', isPrimary: false })
+  const [savingSupplierLink, setSavingSupplierLink] = useState(false)
 
   const isEditing = !!initialData?.id
   const clearSuccessMessage = useCallback(() => setSuccessMessage(null), [])
@@ -490,6 +513,77 @@ export function ProductForm({ initialData }: ProductFormProps) {
     setRefreshingInventory(null)
   }
 
+  // Supplier functions
+  async function handleAddSupplier() {
+    if (!newSupplierLink.supplierId) {
+      alert('Please select a supplier')
+      return
+    }
+
+    setSavingSupplierLink(true)
+    try {
+      const res = await fetch(`/api/products/${initialData?.id}/suppliers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newSupplierLink),
+      })
+
+      const result = await res.json()
+      if (result.id) {
+        // If this was set as primary, update all others to non-primary
+        let updatedSuppliers = productSuppliers
+        if (newSupplierLink.isPrimary) {
+          updatedSuppliers = productSuppliers.map(ps => ({ ...ps, isPrimary: false }))
+        }
+        setProductSuppliers([...updatedSuppliers, {
+          id: result.id,
+          supplierId: result.supplierId,
+          supplierName: result.supplier.displayName || result.supplier.name,
+          supplierFullName: result.supplier.name,
+          isPrimary: result.isPrimary,
+        }])
+        setNewSupplierLink({ supplierId: '', isPrimary: false })
+        setShowSupplierForm(false)
+        setSuccessMessage('Supplier added successfully!')
+      } else {
+        alert('Failed to add supplier')
+      }
+    } catch {
+      alert('Failed to add supplier')
+    }
+    setSavingSupplierLink(false)
+  }
+
+  async function handleRemoveSupplier(supplierId: string) {
+    if (!confirm('Remove this supplier from the product?')) return
+
+    try {
+      await fetch(`/api/products/${initialData?.id}/suppliers/${supplierId}`, {
+        method: 'DELETE',
+      })
+      setProductSuppliers(productSuppliers.filter(ps => ps.supplierId !== supplierId))
+    } catch {
+      alert('Failed to remove supplier')
+    }
+  }
+
+  async function handleSetPrimarySupplier(supplierId: string) {
+    try {
+      await fetch(`/api/products/${initialData?.id}/suppliers/${supplierId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isPrimary: true }),
+      })
+      setProductSuppliers(productSuppliers.map(ps => ({
+        ...ps,
+        isPrimary: ps.supplierId === supplierId,
+      })))
+      setSuccessMessage('Primary supplier updated!')
+    } catch {
+      alert('Failed to update primary supplier')
+    }
+  }
+
   function formatCurrency(amount: number) {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -765,6 +859,120 @@ export function ProductForm({ initialData }: ProductFormProps) {
           )}
         </div>
       </div>
+
+      {/* Suppliers Section - Only show when editing */}
+      {isEditing && (
+        <div className="bg-white shadow rounded-lg p-6">
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h2 className="text-lg font-medium text-gray-900">Suppliers</h2>
+              <p className="text-sm text-gray-500">Factories that manufacture this product</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowSupplierForm(!showSupplierForm)}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md font-medium transition-colors"
+            >
+              {showSupplierForm ? 'Cancel' : 'Add Supplier'}
+            </button>
+          </div>
+
+          {showSupplierForm && (
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Supplier *
+                  </label>
+                  <select
+                    value={newSupplierLink.supplierId}
+                    onChange={(e) => setNewSupplierLink({ ...newSupplierLink, supplierId: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600"
+                  >
+                    <option value="">Select supplier</option>
+                    {allSuppliers
+                      .filter(s => !productSuppliers.some(ps => ps.supplierId === s.id))
+                      .map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.displayName || s.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="isPrimary"
+                    checked={newSupplierLink.isPrimary}
+                    onChange={(e) => setNewSupplierLink({ ...newSupplierLink, isPrimary: e.target.checked })}
+                    className="h-4 w-4 text-maroon-800 focus:ring-caramel-600 border-gray-300 rounded"
+                  />
+                  <label htmlFor="isPrimary" className="ml-2 text-sm text-gray-700">
+                    Primary supplier
+                  </label>
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleAddSupplier}
+                  disabled={savingSupplierLink || !newSupplierLink.supplierId}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium transition-colors disabled:opacity-50"
+                >
+                  {savingSupplierLink ? 'Saving...' : 'Add Supplier'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {productSuppliers.length === 0 ? (
+            <p className="text-gray-500 text-sm">No suppliers linked to this product yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {productSuppliers.map((ps) => (
+                <div
+                  key={ps.supplierId}
+                  className={`flex items-center justify-between p-3 rounded-lg border ${
+                    ps.isPrimary ? 'bg-maroon-50 border-maroon-200' : 'bg-gray-50 border-gray-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div>
+                      <span className="font-medium text-gray-900">{ps.supplierName}</span>
+                      {ps.supplierName !== ps.supplierFullName && (
+                        <span className="text-xs text-gray-500 ml-2">({ps.supplierFullName})</span>
+                      )}
+                      {ps.isPrimary && (
+                        <span className="ml-2 px-2 py-0.5 text-xs font-medium rounded-full bg-maroon-100 text-maroon-800">
+                          Primary
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    {!ps.isPrimary && (
+                      <button
+                        type="button"
+                        onClick={() => handleSetPrimarySupplier(ps.supplierId)}
+                        className="text-xs text-blue-600 hover:text-blue-800"
+                      >
+                        Set Primary
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveSupplier(ps.supplierId)}
+                      className="text-xs text-red-600 hover:text-red-800"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Engraving Art Section - Only show when editing */}
       {isEditing && (

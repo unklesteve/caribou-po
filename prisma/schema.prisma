@@ -29,6 +29,7 @@ model Supplier {
 
   purchaseOrders PurchaseOrder[]
   quotes         Quote[]
+  products       ProductSupplier[]
 }
 
 model Product {
@@ -51,6 +52,7 @@ model Product {
   quotes         ProductQuote[]
   quoteLineItems QuoteLineItem[]
   retailProducts RetailProduct[]
+  suppliers      ProductSupplier[]
 }
 
 model ProductQuote {
@@ -256,4 +258,18 @@ model InventorySnapshot {
   retailProduct RetailProduct @relation(fields: [retailProductId], references: [id], onDelete: Cascade)
 
   @@index([retailProductId, fetchedAt])
+}
+
+// Junction table for products and their suppliers
+model ProductSupplier {
+  id         String   @id @default(cuid())
+  productId  String
+  supplierId String
+  isPrimary  Boolean  @default(false)  // Mark the main supplier for this product
+  createdAt  DateTime @default(now())
+
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, supplierId])
 }

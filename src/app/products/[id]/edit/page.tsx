@@ -8,7 +8,7 @@ interface EditProductPageProps {
 }
 
 export default async function EditProductPage({ params }: EditProductPageProps) {
-  const [product, retailers] = await Promise.all([
+  const [product, retailers, suppliers] = await Promise.all([
     prisma.product.findUnique({
       where: { id: params.id },
       include: {
@@ -27,11 +27,20 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
             },
           },
         },
+        suppliers: {
+          include: {
+            supplier: true,
+          },
+          orderBy: { isPrimary: 'desc' },
+        },
       },
     }),
     prisma.retailer.findMany({
       where: { isActive: true },
       orderBy: { sortOrder: 'asc' },
+    }),
+    prisma.supplier.findMany({
+      orderBy: { name: 'asc' },
     }),
   ])
 
@@ -74,6 +83,18 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
       id: r.id,
       name: r.name,
       baseUrl: r.baseUrl,
+    })),
+    productSuppliers: product.suppliers.map(ps => ({
+      id: ps.id,
+      supplierId: ps.supplierId,
+      supplierName: ps.supplier.displayName || ps.supplier.name,
+      supplierFullName: ps.supplier.name,
+      isPrimary: ps.isPrimary,
+    })),
+    allSuppliers: suppliers.map(s => ({
+      id: s.id,
+      name: s.name,
+      displayName: s.displayName,
     })),
   }
 
