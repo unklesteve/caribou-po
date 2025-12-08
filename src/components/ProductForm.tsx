@@ -21,6 +21,26 @@ interface ProductQuote {
   notes: string | null
 }
 
+interface InventorySnapshot {
+  totalInventory: number
+  variantData: string
+  fetchedAt: string
+}
+
+interface RetailProduct {
+  id: string
+  retailerId: string
+  retailerName: string
+  productUrl: string
+  latestSnapshot: InventorySnapshot | null
+}
+
+interface Retailer {
+  id: string
+  name: string
+  baseUrl: string
+}
+
 interface ProductFormProps {
   initialData?: {
     id?: string
@@ -35,6 +55,8 @@ interface ProductFormProps {
     isActive: boolean
     engravingArt?: EngravingArt[]
     quotes?: ProductQuote[]
+    retailProducts?: RetailProduct[]
+    retailers?: Retailer[]
   }
 }
 
@@ -83,6 +105,14 @@ export function ProductForm({ initialData }: ProductFormProps) {
   const [newQuote, setNewQuote] = useState({ quoteDate: new Date().toISOString().split('T')[0], unitPrice: '', notes: '' })
   const [savingQuote, setSavingQuote] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+
+  // Retail links state
+  const [retailProducts, setRetailProducts] = useState<RetailProduct[]>(initialData?.retailProducts || [])
+  const [retailers] = useState<Retailer[]>(initialData?.retailers || [])
+  const [showRetailForm, setShowRetailForm] = useState(false)
+  const [newRetailLink, setNewRetailLink] = useState({ retailerId: '', productUrl: '' })
+  const [savingRetailLink, setSavingRetailLink] = useState(false)
+  const [refreshingInventory, setRefreshingInventory] = useState<string | null>(null)
 
   const isEditing = !!initialData?.id
   const clearSuccessMessage = useCallback(() => setSuccessMessage(null), [])
@@ -332,6 +362,131 @@ export function ProductForm({ initialData }: ProductFormProps) {
     } catch {
       alert('Failed to delete quote')
     }
+  }
+
+  // Retail link functions
+  async function handleAddRetailLink() {
+    if (!newRetailLink.retailerId || !newRetailLink.productUrl) {
+      alert('Please select a retailer and enter a product URL')
+      return
+    }
+
+    setSavingRetailLink(true)
+    try {
+      const res = await fetch('/api/retail-products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: initialData?.id,
+          retailerId: newRetailLink.retailerId,
+          productUrl: newRetailLink.productUrl,
+        }),
+      })
+
+      const result = await res.json()
+      if (result.id) {
+        const retailer = retailers.find(r => r.id === newRetailLink.retailerId)
+        setRetailProducts([...retailProducts, {
+          id: result.id,
+          retailerId: newRetailLink.retailerId,
+          retailerName: retailer?.name || 'Unknown',
+          productUrl: newRetailLink.productUrl,
+          latestSnapshot: null,
+        }])
+        setNewRetailLink({ retailerId: '', productUrl: '' })
+        setShowRetailForm(false)
+        setSuccessMessage('Retail link added successfully!')
+      } else {
+        alert('Failed to add retail link')
+      }
+    } catch {
+      alert('Failed to add retail link')
+    }
+    setSavingRetailLink(false)
+  }
+
+  async function handleDeleteRetailLink(retailProductId: string) {
+    if (!confirm('Delete this retail link?')) return
+
+    try {
+      await fetch(`/api/retail-products/${retailProductId}`, {
+        method: 'DELETE',
+      })
+      setRetailProducts(retailProducts.filter(rp => rp.id !== retailProductId))
+    } catch {
+      alert('Failed to delete retail link')
+    }
+  }
+
+  async function handleRefreshInventory(retailProductId: string) {
+    setRefreshingInventory(retailProductId)
+    try {
+      const res = await fetch('/api/retail-inventory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ retailProductIds: [retailProductId] }),
+      })
+
+      const result = await res.json()
+      if (result.results?.[0]?.success) {
+        const inventoryResult = result.results[0]
+        setRetailProducts(retailProducts.map(rp => {
+          if (rp.id === retailProductId) {
+            return {
+              ...rp,
+              latestSnapshot: {
+                totalInventory: inventoryResult.totalInventory,
+                variantData: JSON.stringify(inventoryResult.variants),
+                fetchedAt: new Date().toISOString(),
+              },
+            }
+          }
+          return rp
+        }))
+        setSuccessMessage(`Inventory updated: ${inventoryResult.totalInventory} units total`)
+      } else {
+        alert('Failed to fetch inventory')
+      }
+    } catch {
+      alert('Failed to refresh inventory')
+    }
+    setRefreshingInventory(null)
+  }
+
+  async function handleRefreshAllInventory() {
+    if (retailProducts.length === 0) return
+
+    setRefreshingInventory('all')
+    try {
+      const res = await fetch('/api/retail-inventory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ retailProductIds: retailProducts.map(rp => rp.id) }),
+      })
+
+      const result = await res.json()
+      if (result.results) {
+        const updatedProducts = retailProducts.map(rp => {
+          const inventoryResult = result.results.find((r: { retailProductId: string }) => r.retailProductId === rp.id)
+          if (inventoryResult?.success) {
+            return {
+              ...rp,
+              latestSnapshot: {
+                totalInventory: inventoryResult.totalInventory,
+                variantData: JSON.stringify(inventoryResult.variants),
+                fetchedAt: new Date().toISOString(),
+              },
+            }
+          }
+          return rp
+        })
+        setRetailProducts(updatedProducts)
+        setSuccessMessage(`Refreshed inventory for ${result.refreshed} retailer(s)`)
+      }
+    } catch {
+      alert('Failed to refresh inventory')
+    }
+    setRefreshingInventory(null)
   }
 
   function formatCurrency(amount: number) {
@@ -922,6 +1077,170 @@ export function ProductForm({ initialData }: ProductFormProps) {
                   })}
                 </tbody>
               </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Retail Links Section - Only show when editing */}
+      {isEditing && (
+        <div className="bg-white shadow rounded-lg p-6">
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h2 className="text-lg font-medium text-gray-900">Retail Inventory Tracking</h2>
+              <p className="text-sm text-gray-500">Track inventory levels at retail partners</p>
+            </div>
+            <div className="flex gap-2">
+              {retailProducts.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleRefreshAllInventory}
+                  disabled={refreshingInventory === 'all'}
+                  className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md font-medium transition-colors disabled:opacity-50"
+                >
+                  {refreshingInventory === 'all' ? 'Refreshing...' : 'Refresh All'}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowRetailForm(!showRetailForm)}
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md font-medium transition-colors"
+              >
+                {showRetailForm ? 'Cancel' : 'Add Retailer Link'}
+              </button>
+            </div>
+          </div>
+
+          {showRetailForm && (
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Retailer *
+                  </label>
+                  <select
+                    value={newRetailLink.retailerId}
+                    onChange={(e) => setNewRetailLink({ ...newRetailLink, retailerId: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600"
+                  >
+                    <option value="">Select retailer</option>
+                    {retailers
+                      .filter(r => !retailProducts.some(rp => rp.retailerId === r.id))
+                      .map((r) => (
+                        <option key={r.id} value={r.id}>{r.name}</option>
+                      ))}
+                  </select>
+                  {retailers.length === 0 && (
+                    <p className="text-xs text-orange-600 mt-1">
+                      No retailers configured. <a href="/retailers" className="underline">Add retailers first</a>
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Product URL *
+                  </label>
+                  <input
+                    type="url"
+                    value={newRetailLink.productUrl}
+                    onChange={(e) => setNewRetailLink({ ...newRetailLink, productUrl: e.target.value })}
+                    placeholder="https://yoyoexpert.com/products/..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleAddRetailLink}
+                  disabled={savingRetailLink || !newRetailLink.retailerId || !newRetailLink.productUrl}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium transition-colors disabled:opacity-50"
+                >
+                  {savingRetailLink ? 'Saving...' : 'Add Link'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {retailProducts.length === 0 ? (
+            <p className="text-gray-500 text-sm">No retail links added yet. Add links to track inventory at your retail partners.</p>
+          ) : (
+            <div className="space-y-3">
+              {retailProducts.map((rp) => {
+                const variants = rp.latestSnapshot ? JSON.parse(rp.latestSnapshot.variantData) : []
+                return (
+                  <div key={rp.id} className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-gray-900">{rp.retailerName}</span>
+                          {rp.latestSnapshot && (
+                            <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                              rp.latestSnapshot.totalInventory > 0
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {rp.latestSnapshot.totalInventory} units
+                            </span>
+                          )}
+                        </div>
+                        <a
+                          href={rp.productUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-blue-600 hover:text-blue-800 truncate block max-w-md"
+                        >
+                          {rp.productUrl}
+                        </a>
+                        {rp.latestSnapshot && (
+                          <p className="text-xs text-gray-400 mt-1">
+                            Last updated: {formatDate(rp.latestSnapshot.fetchedAt)}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleRefreshInventory(rp.id)}
+                          disabled={refreshingInventory === rp.id}
+                          className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                        >
+                          {refreshingInventory === rp.id ? 'Refreshing...' : 'Refresh'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteRetailLink(rp.id)}
+                          className="text-xs text-red-600 hover:text-red-800"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Variant breakdown */}
+                    {variants.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <p className="text-xs font-medium text-gray-500 mb-2">Variant Inventory:</p>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                          {variants.map((v: { id: number; title: string; quantity: number; available: boolean }) => (
+                            <div
+                              key={v.id}
+                              className={`text-xs px-2 py-1 rounded ${
+                                v.quantity > 0
+                                  ? 'bg-green-50 text-green-800'
+                                  : 'bg-gray-50 text-gray-500'
+                              }`}
+                            >
+                              <span className="font-medium">{v.title}</span>
+                              <span className="ml-1">({v.quantity})</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>

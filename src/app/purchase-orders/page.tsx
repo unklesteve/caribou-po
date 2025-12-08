@@ -19,17 +19,25 @@ interface Supplier {
 }
 
 const statusColors: Record<string, string> = {
-  DRAFT: 'bg-gray-100 text-gray-800',
+  PROTOTYPE: 'bg-purple-100 text-purple-800',
+  APPROVED: 'bg-indigo-100 text-indigo-800',
   ORDERED: 'bg-blue-100 text-blue-800',
   IN_PRODUCTION: 'bg-yellow-100 text-yellow-800',
-  RECEIVED: 'bg-green-100 text-green-800',
+  SHIPPED: 'bg-orange-100 text-orange-800',
+  RECEIVED: 'bg-teal-100 text-teal-800',
+  PACKAGED: 'bg-green-100 text-green-800',
+  RELEASED: 'bg-emerald-100 text-emerald-800',
 }
 
 const statusLabels: Record<string, string> = {
-  DRAFT: 'Draft',
+  PROTOTYPE: 'Prototype',
+  APPROVED: 'Approved',
   ORDERED: 'Ordered',
   IN_PRODUCTION: 'In Production',
+  SHIPPED: 'Shipped',
   RECEIVED: 'Received',
+  PACKAGED: 'Packaged',
+  RELEASED: 'Released',
 }
 
 export default function PurchaseOrdersPage() {
@@ -221,10 +229,14 @@ export default function PurchaseOrdersPage() {
           className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-caramel-600"
         >
           <option value="">All Statuses</option>
-          <option value="DRAFT">Draft</option>
+          <option value="PROTOTYPE">Prototype</option>
+          <option value="APPROVED">Approved</option>
           <option value="ORDERED">Ordered</option>
           <option value="IN_PRODUCTION">In Production</option>
+          <option value="SHIPPED">Shipped</option>
           <option value="RECEIVED">Received</option>
+          <option value="PACKAGED">Packaged</option>
+          <option value="RELEASED">Released (Archived)</option>
         </select>
       </div>
 

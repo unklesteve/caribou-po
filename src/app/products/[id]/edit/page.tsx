@@ -8,17 +8,32 @@ interface EditProductPageProps {
 }
 
 export default async function EditProductPage({ params }: EditProductPageProps) {
-  const product = await prisma.product.findUnique({
-    where: { id: params.id },
-    include: {
-      engravingArt: {
-        orderBy: { position: 'asc' },
+  const [product, retailers] = await Promise.all([
+    prisma.product.findUnique({
+      where: { id: params.id },
+      include: {
+        engravingArt: {
+          orderBy: { position: 'asc' },
+        },
+        quotes: {
+          orderBy: { quoteDate: 'desc' },
+        },
+        retailProducts: {
+          include: {
+            retailer: true,
+            snapshots: {
+              orderBy: { fetchedAt: 'desc' },
+              take: 1,
+            },
+          },
+        },
       },
-      quotes: {
-        orderBy: { quoteDate: 'desc' },
-      },
-    },
-  })
+    }),
+    prisma.retailer.findMany({
+      where: { isActive: true },
+      orderBy: { sortOrder: 'asc' },
+    }),
+  ])
 
   if (!product) {
     notFound()
@@ -42,6 +57,22 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
       quoteType: q.quoteType,
       unitPrice: q.unitPrice,
       notes: q.notes,
+    })),
+    retailProducts: product.retailProducts.map(rp => ({
+      id: rp.id,
+      retailerId: rp.retailerId,
+      retailerName: rp.retailer.name,
+      productUrl: rp.productUrl,
+      latestSnapshot: rp.snapshots[0] ? {
+        totalInventory: rp.snapshots[0].totalInventory,
+        variantData: rp.snapshots[0].variantData,
+        fetchedAt: rp.snapshots[0].fetchedAt.toISOString(),
+      } : null,
+    })),
+    retailers: retailers.map(r => ({
+      id: r.id,
+      name: r.name,
+      baseUrl: r.baseUrl,
     })),
   }
 

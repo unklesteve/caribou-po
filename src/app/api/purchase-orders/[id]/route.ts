@@ -119,8 +119,14 @@ export async function PATCH(
     updateData.status = body.status
     if (body.status === 'ORDERED') {
       updateData.sentAt = new Date()
+    } else if (body.status === 'SHIPPED') {
+      updateData.shippedAt = new Date()
     } else if (body.status === 'RECEIVED') {
       updateData.receivedAt = new Date()
+    } else if (body.status === 'PACKAGED') {
+      updateData.packagedAt = new Date()
+    } else if (body.status === 'RELEASED') {
+      updateData.releasedAt = new Date()
     }
   }
 
