@@ -62,6 +62,7 @@ interface PurchaseOrder {
   receivedAt: string | null
   supplier: {
     name: string
+    displayName: string | null
     email: string | null
     phone: string | null
     address: string | null
@@ -339,7 +340,10 @@ export default function PurchaseOrderDetailPage({
           <div className="bg-white shadow rounded-lg p-6">
             <h2 className="text-lg font-medium text-gray-900 mb-4">Supplier</h2>
             <div className="space-y-2">
-              <p className="font-medium text-gray-900">{po.supplier.name}</p>
+              <p className="font-medium text-gray-900">{po.supplier.displayName || po.supplier.name}</p>
+              {po.supplier.displayName && (
+                <p className="text-sm text-gray-500">{po.supplier.name}</p>
+              )}
               {po.supplier.email && (
                 <p className="text-gray-600">{po.supplier.email}</p>
               )}

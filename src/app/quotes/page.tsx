@@ -29,7 +29,7 @@ interface Quote {
   totalCost: number | null
   shippingCost: number | null
   notes: string | null
-  supplier: { name: string } | null
+  supplier: { name: string; displayName: string | null } | null
   purchaseOrder: { id: string; poNumber: string } | null
   lineItems: QuoteLineItem[]
 }
@@ -37,7 +37,7 @@ interface Quote {
 export default function QuotesPage() {
   const [quotes, setQuotes] = useState<Quote[]>([])
   const [products, setProducts] = useState<Product[]>([])
-  const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([])
+  const [suppliers, setSuppliers] = useState<{ id: string; name: string; displayName: string | null }[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -291,7 +291,7 @@ export default function QuotesPage() {
               >
                 <option value="">Select supplier</option>
                 {suppliers.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
+                  <option key={s.id} value={s.id}>{s.displayName || s.name}</option>
                 ))}
               </select>
             </div>

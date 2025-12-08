@@ -13,6 +13,7 @@ function formatImageUrl(url: string | null): string | null {
 interface Supplier {
   id: string
   name: string
+  displayName: string | null
 }
 
 interface EngravingArt {
@@ -267,7 +268,7 @@ export function PurchaseOrderForm({ initialData }: PurchaseOrderFormProps) {
               <option value="">Select a supplier</option>
               {suppliers.map((supplier) => (
                 <option key={supplier.id} value={supplier.id}>
-                  {supplier.name}
+                  {supplier.displayName || supplier.name}
                 </option>
               ))}
             </select>

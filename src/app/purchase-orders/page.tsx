@@ -10,7 +10,7 @@ interface PurchaseOrder {
   poNumber: string
   status: string
   createdAt: string
-  supplier: { name: string }
+  supplier: { name: string; displayName: string | null }
 }
 
 interface Supplier {
@@ -286,7 +286,7 @@ export default function PurchaseOrdersPage() {
                     </Link>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-gray-900">
-                    {order.supplier.name}
+                    {order.supplier.displayName || order.supplier.name}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-gray-500">
                     {formatDate(order.createdAt)}

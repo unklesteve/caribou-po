@@ -37,7 +37,7 @@ interface Quote {
   notes: string | null
   supplierId: string | null
   purchaseOrderId: string | null
-  supplier: { id: string; name: string } | null
+  supplier: { id: string; name: string; displayName: string | null } | null
   purchaseOrder: PurchaseOrder | null
   lineItems: QuoteLineItem[]
 }
@@ -49,7 +49,7 @@ export default function QuoteEditPage() {
 
   const [quote, setQuote] = useState<Quote | null>(null)
   const [products, setProducts] = useState<Product[]>([])
-  const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([])
+  const [suppliers, setSuppliers] = useState<{ id: string; name: string; displayName: string | null }[]>([])
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -350,7 +350,7 @@ export default function QuoteEditPage() {
               >
                 <option value="">Select supplier</option>
                 {suppliers.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
+                  <option key={s.id} value={s.id}>{s.displayName || s.name}</option>
                 ))}
               </select>
             </div>

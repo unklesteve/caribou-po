@@ -291,7 +291,7 @@ export default async function DashboardPage() {
                               </div>
                             </div>
                             <div className="text-xs text-gray-500 mt-0.5">
-                              {po.supplier.name}
+                              {po.supplier.displayName || po.supplier.name}
                             </div>
                             <div className="text-xs text-gray-400 mt-1">
                               {po.lineItems.length} item{po.lineItems.length !== 1 ? 's' : ''}
