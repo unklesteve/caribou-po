@@ -14,6 +14,7 @@ datasource db {
 model Supplier {
   id            String   @id @default(cuid())
   name          String
+  displayName   String?  // Short nickname for display
   email         String?
   phone         String?
   address       String?
@@ -71,20 +72,22 @@ model ProductQuote {
 }
 
 model Quote {
-  id          String   @id @default(cuid())
-  quoteNumber String?
-  quoteDate   DateTime
-  quoteType   String   @default("production") // "prototype" or "production"
-  supplierId  String?
-  pdfUrl      String?
-  totalCost   Float?
-  shippingCost Float?
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String   @id @default(cuid())
+  quoteNumber     String?
+  quoteDate       DateTime
+  quoteType       String   @default("production") // "prototype" or "production"
+  supplierId      String?
+  purchaseOrderId String?  // Link to related PO
+  pdfUrl          String?
+  totalCost       Float?
+  shippingCost    Float?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  supplier   Supplier?   @relation(fields: [supplierId], references: [id])
-  lineItems  QuoteLineItem[]
+  supplier      Supplier?      @relation(fields: [supplierId], references: [id])
+  purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+  lineItems     QuoteLineItem[]
 }
 
 model QuoteLineItem {
@@ -130,6 +133,7 @@ model PurchaseOrder {
 
   supplier  Supplier   @relation(fields: [supplierId], references: [id])
   lineItems LineItem[]
+  quotes    Quote[]    // Related quotes for this PO
 }
 
 model LineItem {

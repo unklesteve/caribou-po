@@ -30,6 +30,7 @@ interface Quote {
   shippingCost: number | null
   notes: string | null
   supplier: { name: string } | null
+  purchaseOrder: { id: string; poNumber: string } | null
   lineItems: QuoteLineItem[]
 }
 
@@ -469,6 +470,9 @@ export default function QuotesPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   PDF
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Linked PO
+                </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
@@ -530,6 +534,18 @@ export default function QuotesPage() {
                       >
                         View PDF
                       </a>
+                    ) : (
+                      <span className="text-gray-400 text-sm">-</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {quote.purchaseOrder ? (
+                      <Link
+                        href={`/purchase-orders/${quote.purchaseOrder.id}`}
+                        className="text-maroon-800 hover:text-maroon-900 text-sm font-medium"
+                      >
+                        {quote.purchaseOrder.poNumber}
+                      </Link>
                     ) : (
                       <span className="text-gray-400 text-sm">-</span>
                     )}

@@ -36,6 +36,8 @@ export default async function EditPurchaseOrderPage({
 
   const formData = {
     id: po.id,
+    poNumber: po.poNumber,
+    createdAt: po.createdAt.toISOString(),
     supplierId: po.supplierId,
     notes: po.notes || '',
     lineItems: po.lineItems.map((item) => ({

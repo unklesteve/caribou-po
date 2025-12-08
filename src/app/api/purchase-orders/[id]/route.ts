@@ -59,6 +59,8 @@ export async function PUT(
     const purchaseOrder = await prisma.purchaseOrder.update({
     where: { id: params.id },
     data: {
+      poNumber: body.poNumber || undefined,
+      createdAt: body.createdAt ? new Date(body.createdAt) : undefined,
       supplierId: body.supplierId,
       notes: body.notes || null,
       lineItems: {
