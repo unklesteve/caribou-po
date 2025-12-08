@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { PurchaseOrderForm } from '@/components/PurchaseOrderForm'
 import Link from 'next/link'
-import { notFound, redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 
 interface EditPurchaseOrderPageProps {
   params: { id: string }
@@ -32,11 +32,6 @@ export default async function EditPurchaseOrderPage({
 
   if (!po) {
     notFound()
-  }
-
-  // Only allow editing draft POs
-  if (po.status !== 'DRAFT') {
-    redirect(`/purchase-orders/${po.id}`)
   }
 
   const formData = {
